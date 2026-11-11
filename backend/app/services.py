@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from . import models, schemas
+from . import mercadolivre, models, schemas
 
 
 def status_estoque(p: models.Produto) -> schemas.StatusEstoque:
@@ -57,6 +57,11 @@ def produto_detalhe(p: models.Produto) -> schemas.ProdutoDetalhe:
                 url=pf.url,
                 preco=pf.preco,
                 preferido=pf.preferido,
+                monitorado=mercadolivre.extrair_id(pf.url) is not None,
+                preco_atualizado_em=pf.preco_atualizado_em,
+                frete_gratis=pf.frete_gratis,
+                situacao_anuncio=pf.situacao_anuncio,
+                erro_coleta=pf.erro_coleta,
             )
             for pf in p.fornecedores
         ],

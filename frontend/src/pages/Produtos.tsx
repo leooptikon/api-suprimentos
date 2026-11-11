@@ -10,7 +10,7 @@ import { CabecalhoPagina } from "../components/Layout";
 import { Botao, Card, cn, Esqueleto, Input, MedidorEstoque, Select, StatusBadge, Vazio } from "../components/ui";
 import { api, type StatusEstoque } from "../lib/api";
 import { EtiquetaCategoria, MiniaturaProduto } from "../lib/categorias";
-import { agruparLocais, fmtMoeda, fmtNum, SEM_LOCAL } from "../lib/format";
+import { fmtMoeda, fmtNum, SEM_LOCAL } from "../lib/format";
 
 const FILTROS: { valor: StatusEstoque | ""; rotulo: string; ponto?: string }[] = [
   { valor: "", rotulo: "Todos" },
@@ -43,7 +43,6 @@ export function Produtos() {
   const produtos = useQuery({ queryKey: ["produtos", filtros], queryFn: () => api.produtos(filtros), placeholderData: (a) => a });
   const categorias = useQuery({ queryKey: ["categorias"], queryFn: api.categorias });
   const locais = useQuery({ queryKey: ["locais"], queryFn: api.locais });
-  const gruposLocais = agruparLocais(locais.data ?? []);
 
   const restaurar = useMutation({
     mutationFn: api.restaurarProduto,
@@ -116,22 +115,11 @@ export function Produtos() {
           <Select value={local} onChange={(e) => setParam("local", e.target.value)} className="lg:w-56" aria-label="Local">
             <option value="">Todos os locais</option>
             <option value={SEM_LOCAL}>Sem localização</option>
-            {[...gruposLocais].map(([principal, itens]) =>
-              itens.length === 1 && itens[0] === principal ? (
-                <option key={principal} value={principal}>
-                  {principal}
-                </option>
-              ) : (
-                <optgroup key={principal} label={principal}>
-                  <option value={principal}>Tudo em {principal}</option>
-                  {itens.filter((l) => l !== principal).map((l) => (
-                    <option key={l} value={l}>
-                      {l}
-                    </option>
-                  ))}
-                </optgroup>
-              ),
-            )}
+            {locais.data?.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
           </Select>
           {!arquivados && (
             <div role="radiogroup" aria-label="Situação do estoque" className="flex gap-1 overflow-x-auto rounded-lg border border-line bg-bg/50 p-1">

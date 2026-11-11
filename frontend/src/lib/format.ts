@@ -56,22 +56,6 @@ export const iniciais = (nome: string) =>
 /** Valor do filtro de local para "produtos sem localização" (igual ao backend). */
 export const SEM_LOCAL = "__sem__";
 
-// Mesmos separadores que o backend entende no filtro: " · ", " - ", " / ", " | " e vírgula
-const SEPARADOR_LOCAL = /\s+[·\-–—/|]\s+|,\s*/;
-
-/** "Armário A · Gaveta 1" → "Armário A" */
-export const localPrincipal = (local: string) => local.split(SEPARADOR_LOCAL)[0]!.trim();
-
-/** Agrupa os locais pela parte principal, mantendo a ordem. */
-export function agruparLocais(locais: string[]) {
-  const grupos = new Map<string, string[]>();
-  for (const l of locais) {
-    const p = localPrincipal(l);
-    grupos.set(p, [...(grupos.get(p) ?? []), l]);
-  }
-  return grupos;
-}
-
 /** Tamanho mínimo da senha (igual ao SENHA_MIN do backend) */
 export const SENHA_MIN = 4;
 

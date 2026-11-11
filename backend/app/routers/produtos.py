@@ -30,7 +30,7 @@ def _carregar(db: Session, produto_id: int) -> models.Produto:
 def listar(
     busca: str | None = None,
     categoria: str | None = None,
-    local: str | None = Query(None, description="Local exato ou só a parte principal (ex.: 'Armário A'). Use '__sem__' para sem local."),
+    local: str | None = Query(None, description="Local (ex.: 'Armário A'). Use '__sem__' para produtos sem local."),
     status: Literal["ok", "baixo", "esgotado"] | None = None,
     arquivados: bool = False,
     db: Session = Depends(get_db),
@@ -56,16 +56,7 @@ def listar(
     if local == SEM_LOCAL:
         stmt = stmt.where(models.Produto.localizacao.is_(None))
     elif local:
-        # "Armário A" pega o próprio "Armário A" e tudo dentro dele: "Armário A · Gaveta 1", "Armário A, prateleira 2"…
-        loc = models.Produto.localizacao
-        v = local.strip()
-        stmt = stmt.where(
-            or_(
-                func.lower(loc) == v.lower(),
-                loc.istartswith(v + " ", autoescape=True),
-                loc.istartswith(v + ",", autoescape=True),
-            )
-        )
+        stmt = stmt.where(func.lower(models.Produto.localizacao) == local.strip().lower())
 
     produtos = [services.produto_out(p) for p in db.scalars(stmt)]
     if status:
@@ -78,7 +69,7 @@ SEM_LOCAL = "__sem__"
 
 @router.get("/locais", response_model=list[str])
 def locais(db: Session = Depends(get_db)):
-    """Locais usados pelos produtos ativos (o site agrupa pela parte principal)."""
+    """Locais usados pelos produtos ativos (para o filtro e para sugerir ao cadastrar)."""
     stmt = (
         select(models.Produto.localizacao)
         .where(models.Produto.localizacao.is_not(None), models.Produto.arquivado.is_(False))
@@ -199,6 +190,8 @@ def atualizar_vinculo(
     if dados.preferido:
         for pf in produto.fornecedores:
             pf.preferido = False
+    if dados.url != vinculo.url:
+        vinculo.preco_atualizado_em = vinculo.frete_gratis = vinculo.situacao_anuncio = vinculo.erro_coleta = None
     for campo, valor in dados.model_dump().items():
         setattr(vinculo, campo, valor)
     try:

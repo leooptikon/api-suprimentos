@@ -10,6 +10,7 @@ import "./index.css";
 import { Compras } from "./pages/Compras";
 import { Dashboard } from "./pages/Dashboard";
 import { Fornecedores } from "./pages/Fornecedores";
+import { Integracoes } from "./pages/Integracoes";
 import { Movimentacoes } from "./pages/Movimentacoes";
 import { Pessoas } from "./pages/Pessoas";
 import { ProdutoDetalhe } from "./pages/ProdutoDetalhe";
@@ -37,6 +38,7 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="movimentacoes" element={<Movimentacoes />} />
                 <Route path="fornecedores" element={<Fornecedores />} />
                 <Route path="pessoas" element={<Pessoas />} />
+                <Route path="integracoes" element={<Integracoes />} />
                 <Route path="*" element={<Dashboard />} />
               </Route>
             </Routes>

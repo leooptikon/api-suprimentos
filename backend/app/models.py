@@ -74,6 +74,11 @@ class ProdutoFornecedor(Base):
     url: Mapped[str | None] = mapped_column(String(500))
     preco: Mapped[float | None] = mapped_column(Float)
     preferido: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Preenchidos quando o preço vem da API do Mercado Livre (link de anúncio)
+    preco_atualizado_em: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    frete_gratis: Mapped[bool | None] = mapped_column(Boolean)
+    situacao_anuncio: Mapped[str | None] = mapped_column(String(24))
+    erro_coleta: Mapped[str | None] = mapped_column(String(255))
 
     produto: Mapped[Produto] = relationship(back_populates="fornecedores")
     fornecedor: Mapped[Fornecedor] = relationship(back_populates="produtos")
@@ -243,3 +248,52 @@ class EventoUnidade(Base):
 
     unidade: Mapped[Unidade] = relationship(back_populates="eventos")
     registrado_por: Mapped[Pessoa | None] = relationship()
+
+
+# ---------- Integração Mercado Livre ----------
+class IntegracaoML(Base):
+    """Uma linha só: a conta do Mercado Livre conectada e seus tokens (o refresh token é de uso único)."""
+
+    __tablename__ = "integracao_ml"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    access_token: Mapped[str | None] = mapped_column(String(255))
+    refresh_token: Mapped[str | None] = mapped_column(String(255))
+    expira_em: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    ml_user_id: Mapped[int | None] = mapped_column(Integer)
+    nickname: Mapped[str | None] = mapped_column(String(120))
+    conectado_em: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    # Autorização em andamento (OAuth com PKCE)
+    estado_pendente: Mapped[str | None] = mapped_column(String(64))
+    verificador_pendente: Mapped[str | None] = mapped_column(String(128))
+
+
+class PrecoColetado(Base):
+    """Histórico: cada leitura de preço de um anúncio."""
+
+    __tablename__ = "precos_coletados"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    vinculo_id: Mapped[int] = mapped_column(ForeignKey("produto_fornecedor.id", ondelete="CASCADE"), index=True)
+    produto_id: Mapped[int] = mapped_column(ForeignKey("produtos.id", ondelete="CASCADE"), index=True)
+    anuncio_id: Mapped[str] = mapped_column(String(24))
+    titulo: Mapped[str | None] = mapped_column(String(255))
+    preco: Mapped[float] = mapped_column(Float)
+    frete_gratis: Mapped[bool | None] = mapped_column(Boolean)
+    situacao: Mapped[str | None] = mapped_column(String(24))
+    coletado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora, index=True)
+
+
+class ExecucaoColeta(Base):
+    """Cada rodada de atualização (automática ou pelo botão)."""
+
+    __tablename__ = "execucoes_coleta"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    automatica: Mapped[bool] = mapped_column(Boolean, default=True)
+    inicio: Mapped[datetime] = mapped_column(UTCDateTime, default=agora, index=True)
+    fim: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    anuncios: Mapped[int] = mapped_column(Integer, default=0)
+    atualizados: Mapped[int] = mapped_column(Integer, default=0)
+    falhas: Mapped[int] = mapped_column(Integer, default=0)
+    mensagem: Mapped[str | None] = mapped_column(String(255))

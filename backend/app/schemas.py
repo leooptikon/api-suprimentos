@@ -110,6 +110,11 @@ class ProdutoFornecedorIn(_Base):
 class ProdutoFornecedorOut(ProdutoFornecedorIn):
     id: int
     fornecedor_nome: str
+    monitorado: bool = False
+    preco_atualizado_em: datetime | None = None
+    frete_gratis: bool | None = None
+    situacao_anuncio: str | None = None
+    erro_coleta: str | None = None
 
 
 class ProdutoBase(_Base):

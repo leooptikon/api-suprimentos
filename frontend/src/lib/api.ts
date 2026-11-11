@@ -29,7 +29,15 @@ export interface Vinculo {
   url: string | null;
   preco: number | null;
   preferido: boolean;
+  /** Link de anúncio do Mercado Livre: o preço é atualizado todo dia */
+  monitorado: boolean;
+  preco_atualizado_em: string | null;
+  frete_gratis: boolean | null;
+  situacao_anuncio: string | null;
+  erro_coleta: string | null;
 }
+
+export type VinculoForm = Pick<Vinculo, "fornecedor_id" | "url" | "preco" | "preferido">;
 
 export interface ProdutoDetalhe extends Produto {
   fornecedores: Vinculo[];
@@ -200,6 +208,43 @@ export interface EventoUnidade {
   criado_em: string;
 }
 
+export interface ExecucaoColeta {
+  id: number;
+  automatica: boolean;
+  inicio: string;
+  fim: string | null;
+  anuncios: number;
+  atualizados: number;
+  falhas: number;
+  mensagem: string | null;
+}
+
+export interface StatusML {
+  configurado: boolean;
+  conectado: boolean;
+  /** false quando a aplicação não tem "acesso offline": a conexão cai quando o token expira */
+  renovacao_automatica: boolean;
+  expira_em: string | null;
+  nickname: string | null;
+  conectado_em: string | null;
+  redirect_uri: string | null;
+  horario: string;
+  proxima_execucao: string | null;
+  ultima: ExecucaoColeta | null;
+  anuncios_monitorados: number;
+  reconectar_ate: string | null;
+}
+
+export interface PontoPreco {
+  vinculo_id: number;
+  fornecedor_nome: string;
+  preco: number;
+  frete_gratis: boolean | null;
+  situacao: string | null;
+  titulo: string | null;
+  coletado_em: string;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -267,9 +312,9 @@ export const api = {
   enviarFoto: (id: number, imagem: Blob) => http<ProdutoDetalhe>("PUT", `/api/produtos/${id}/foto`, imagem),
   removerFoto: (id: number) => http<ProdutoDetalhe>("DELETE", `/api/produtos/${id}/foto`),
 
-  vincular: (id: number, d: Omit<Vinculo, "id" | "fornecedor_nome">) =>
+  vincular: (id: number, d: VinculoForm) =>
     http<ProdutoDetalhe>("POST", `/api/produtos/${id}/fornecedores`, d),
-  atualizarVinculo: (id: number, vid: number, d: Omit<Vinculo, "id" | "fornecedor_nome">) =>
+  atualizarVinculo: (id: number, vid: number, d: VinculoForm) =>
     http<ProdutoDetalhe>("PUT", `/api/produtos/${id}/fornecedores/${vid}`, d),
   desvincular: (id: number, vid: number) => http<ProdutoDetalhe>("DELETE", `/api/produtos/${id}/fornecedores/${vid}`),
 
@@ -304,6 +349,13 @@ export const api = {
   atualizarUnidade: (id: number, d: { status: StatusUnidade; local: string | null; observacao: string | null }) =>
     http<Unidade>("PATCH", `/api/proprios/unidades/${id}`, d),
   eventosUnidade: (id: number) => http<EventoUnidade[]>("GET", `/api/proprios/unidades/${id}/eventos`),
+
+  statusML: () => http<StatusML>("GET", "/api/mercadolivre/status"),
+  conectarML: () => http<{ url: string }>("POST", "/api/mercadolivre/conectar"),
+  concluirML: (codigo_ou_url: string) => http<StatusML>("POST", "/api/mercadolivre/concluir", { codigo_ou_url }),
+  desconectarML: () => http<void>("POST", "/api/mercadolivre/desconectar"),
+  atualizarML: () => http<ExecucaoColeta>("POST", "/api/mercadolivre/atualizar"),
+  historicoPrecos: (produtoId: number) => http<PontoPreco[]>("GET", `/api/mercadolivre/historico/${produtoId}`),
 
   compras: () => http<ItemCompra[]>("GET", "/api/compras"),
   /** POST que devolve arquivo: baixa sem sair da página */

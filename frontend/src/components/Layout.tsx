@@ -11,6 +11,7 @@ import {
   Moon,
   Package,
   PackagePlus,
+  Plug,
   Search,
   ShoppingCart,
   Store,
@@ -36,6 +37,7 @@ const NAV = [
   { to: "/movimentacoes", rotulo: "Movimentações", icone: <ArrowLeftRight /> },
   { to: "/fornecedores", rotulo: "Fornecedores", icone: <Store /> },
   { to: "/pessoas", rotulo: "Pessoas", icone: <Users /> },
+  { to: "/integracoes", rotulo: "Integrações", icone: <Plug />, admin: true },
 ];
 
 
@@ -59,13 +61,14 @@ function Logo() {
 function Sidebar({ aoNavegar }: { aoNavegar?: () => void }) {
   const compras = useQuery({ queryKey: ["compras"], queryFn: api.compras, staleTime: 60_000 });
   const aComprar = compras.data?.length ?? 0;
+  const { admin } = useAuth();
   return (
     <nav className="flex h-full flex-col gap-6 px-3 py-5">
       <div className="px-2">
         <Logo />
       </div>
       <ul className="flex flex-col gap-0.5">
-        {NAV.map((n) => (
+        {NAV.filter((n) => !("admin" in n) || admin).map((n) => (
           <li key={n.to}>
             <NavLink
               to={n.to}

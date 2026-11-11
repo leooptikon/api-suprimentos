@@ -422,6 +422,7 @@ function ProdutoModal({ produto, aoFechar }: { produto?: Produto; aoFechar: () =
   const set = <K extends keyof ProdutoForm>(k: K, v: ProdutoForm[K]) => setF((s) => ({ ...s, [k]: v }));
 
   const categorias = useQuery({ queryKey: ["categorias"], queryFn: api.categorias });
+  const locais = useQuery({ queryKey: ["locais"], queryFn: api.locais });
   const pessoas = useQuery({ queryKey: ["pessoas"], queryFn: () => api.pessoas(), enabled: !editando });
 
   const salvar = useMutation({
@@ -517,7 +518,12 @@ function ProdutoModal({ produto, aoFechar }: { produto?: Produto; aoFechar: () =
 
         <Campo rotulo="Localização" className="sm:col-span-3">
           {(id) => (
-            <Input id={id} value={f.localizacao ?? ""} onChange={(e) => set("localizacao", e.target.value)} placeholder="Ex.: Armário A · Gaveta 1" maxLength={120} />
+            <>
+              <Input id={id} list="lista-locais" value={f.localizacao ?? ""} onChange={(e) => set("localizacao", e.target.value)} placeholder="Ex.: Armário A" maxLength={120} />
+              <datalist id="lista-locais">
+                {locais.data?.map((l) => <option key={l} value={l} />)}
+              </datalist>
+            </>
           )}
         </Campo>
         {!editando && (

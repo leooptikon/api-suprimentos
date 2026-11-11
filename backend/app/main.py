@@ -8,7 +8,9 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text
 
 from .db import Base, engine
-from .routers import autenticacao, cadastros, compras, movimentacoes, produtos, proprios
+from . import mercadolivre
+from .db import SessionLocal
+from .routers import autenticacao, cadastros, compras, integracoes, movimentacoes, produtos, proprios
 
 Base.metadata.create_all(engine)
 
@@ -19,11 +21,16 @@ def _migrar():
     pessoas = {c["name"] for c in insp.get_columns("pessoas")}
     movs = {c["name"] for c in insp.get_columns("movimentacoes")}
     produtos_cols = {c["name"] for c in insp.get_columns("produtos")}
+    vinculo_cols = {c["name"] for c in insp.get_columns("produto_fornecedor")}
     with engine.begin() as con:
         if "email" in pessoas and "usuario" not in pessoas:
             con.execute(text("ALTER TABLE pessoas RENAME COLUMN email TO usuario"))
         if "estorno_de_id" not in movs:
             con.execute(text("ALTER TABLE movimentacoes ADD COLUMN estorno_de_id INTEGER REFERENCES movimentacoes(id)"))
+        for col, tipo in [("preco_atualizado_em", "DATETIME"), ("frete_gratis", "BOOLEAN"),
+                          ("situacao_anuncio", "VARCHAR(24)"), ("erro_coleta", "VARCHAR(255)")]:
+            if col not in vinculo_cols:
+                con.execute(text(f"ALTER TABLE produto_fornecedor ADD COLUMN {col} {tipo}"))
         if "foto" not in produtos_cols:
             con.execute(text("ALTER TABLE produtos ADD COLUMN foto VARCHAR(80)"))
         if "montagem_id" not in movs:
@@ -55,6 +62,13 @@ app.include_router(cadastros.pessoas)
 app.include_router(movimentacoes.router)
 app.include_router(compras.router)
 app.include_router(proprios.router)
+app.include_router(integracoes.router)
+
+
+@app.on_event("startup")
+def _agendar_coleta():
+    # Atualização diária dos preços do Mercado Livre (só age se a conta estiver conectada)
+    mercadolivre.iniciar_agendador(SessionLocal)
 
 
 @app.get("/api/saude", tags=["Sistema"])

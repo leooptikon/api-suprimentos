@@ -10,9 +10,11 @@ import {
   Link2,
   MapPin,
   ImagePlus,
-  LineChart,
+  LineChart as IconeGrafico,
   Pencil,
   Plus,
+  RefreshCw,
+  TrendingDown,
   Scale,
   Star,
   Store,
@@ -20,7 +22,7 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 import { useAcoes, useInvalidar } from "../components/acoes";
 import { useAuth } from "../components/auth";
@@ -30,7 +32,7 @@ import { Badge, Botao, Campo, Card, CardHeader, cn, Confirmar, Esqueleto, Input,
 import { api, type Movimentacao, type ProdutoDetalhe as Produto, type Vinculo } from "../lib/api";
 import { reduzirImagem } from "../lib/imagem";
 import { EtiquetaCategoria, IconeCategoria } from "../lib/categorias";
-import { fmtDataHora, fmtDiaMes, fmtMoeda, fmtNum } from "../lib/format";
+import { fmtDataHora, fmtDiaMes, fmtMoeda, fmtNum, fmtRelativo } from "../lib/format";
 import { LinhaMov } from "./Dashboard";
 
 export function ProdutoDetalhe() {
@@ -220,6 +222,7 @@ export function ProdutoDetalhe() {
                       ) : (
                         <p className="text-xs text-subtle">Sem link</p>
                       )}
+                      {f.monitorado && <SituacaoColeta v={f} />}
                     </div>
                     <span className="tabular text-sm">{f.preco != null ? fmtMoeda(f.preco) : <span className="text-subtle">—</span>}</span>
                     {admin && !p.arquivado && (
@@ -236,6 +239,7 @@ export function ProdutoDetalhe() {
         </div>
 
         <div className="flex flex-col gap-4 xl:order-1 xl:col-span-2">
+        {p.fornecedores.some((f) => f.monitorado) && <HistoricoPrecos produto={p} />}
         {historico.data && historico.data.length >= 2 && <GraficoSaldo movs={historico.data} produto={p} />}
         <Card>
           <CardHeader titulo="Histórico" descricao="Todas as entradas, retiradas e ajustes deste item" icone={<History />} />
@@ -303,6 +307,7 @@ function VinculoModal({ produto, vinculo, aoFechar }: { produto: Produto; vincul
   const [preferido, setPreferido] = useState(vinculo?.preferido ?? produto.fornecedores.length === 0);
 
   const usados = new Set(produto.fornecedores.map((f) => f.fornecedor_id));
+  const tipoLink = tipoLinkML(url);
   const opcoes = (fornecedores.data ?? []).filter((f) => !usados.has(f.id) || f.id === vinculo?.fornecedor_id);
   // Aceita "1.234,56" (padrão brasileiro) e "1234.56"
   const precoNum = preco.trim() ? Number(preco.includes(",") ? preco.replace(/\./g, "").replace(",", ".") : preco) : null;
@@ -386,10 +391,32 @@ function VinculoModal({ produto, vinculo, aoFechar }: { produto: Produto; vincul
             </Select>
           )}
         </Campo>
-        <Campo rotulo="Link do produto na loja">
+        <Campo
+          rotulo="Link do produto na loja"
+          dica={
+            tipoLink === "anuncio" ? (
+              <span className="flex items-center gap-1.5 text-ok">
+                <RefreshCw className="size-3.5" /> Anúncio do Mercado Livre: o preço vai se atualizar sozinho todo dia.
+              </span>
+            ) : tipoLink === "sem_catalogo" ? (
+              <span className="text-warn">
+                O Mercado Livre não libera o preço por esse tipo de link. Abra o anúncio e, na página, clique no nome do produto (ou procure o endereço com
+                “/p/MLB”) e cole esse.
+              </span>
+            ) : tipoLink === "busca" ? (
+              <span className="text-warn">Esse é um link de busca. Abra o anúncio que vocês compram e copie o endereço da página dele.</span>
+            ) : (
+              "Dica: com o link de um anúncio do Mercado Livre o preço se atualiza sozinho."
+            )
+          }
+        >
           {(id) => <Input id={id} type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" maxLength={500} />}
         </Campo>
-        <Campo rotulo="Preço (R$)" dica="Último preço que vocês viram nessa loja." erro={precoInvalido ? "Preço inválido" : undefined}>
+        <Campo
+          rotulo="Preço (R$)"
+          dica={tipoLink === "anuncio" ? "Será substituído pelo preço do anúncio na próxima atualização." : "Último preço que vocês viram nessa loja."}
+          erro={precoInvalido ? "Preço inválido" : undefined}
+        >
           {(id) => <Input id={id} inputMode="decimal" className="tabular" value={preco} onChange={(e) => setPreco(e.target.value)} placeholder="0,00" />}
         </Campo>
         <Switch checked={preferido} onChange={setPreferido} rotulo="Fornecedor preferido" descricao="É de onde vocês costumam comprar este item." />
@@ -478,7 +505,7 @@ function GraficoSaldo({ movs, produto }: { movs: Movimentacao[]; produto: Produt
 
   return (
     <Card>
-      <CardHeader titulo="Saldo ao longo do tempo" descricao="Cada degrau é uma entrada, retirada ou correção" icone={<LineChart />} />
+      <CardHeader titulo="Saldo ao longo do tempo" descricao="Cada degrau é uma entrada, retirada ou correção" icone={<IconeGrafico />} />
       <div className="h-52 px-2 pt-4 pb-2">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={pontos} margin={{ top: 8, right: 16, left: -16, bottom: 0 }}>
@@ -529,3 +556,172 @@ function GraficoSaldo({ movs, produto }: { movs: Movimentacao[]; produto: Produt
     </Card>
   );
 }
+
+/**
+ * Mesma regra do backend. Só a página de produto (/p/MLB…) dá preço: a API do Mercado Livre
+ * bloqueia a leitura de anúncio avulso (MLB-123…) de outros vendedores.
+ */
+function tipoLinkML(url: string): "anuncio" | "sem_catalogo" | "busca" | null {
+  if (!/mercadoli(vre|bre)\.com/i.test(url)) return null;
+  if (/\/p\/MLB\d+/i.test(url)) return "anuncio";
+  return /MLB-?\d{6,}/i.test(url) ? "sem_catalogo" : "busca";
+}
+
+const SITUACAO_ANUNCIO: Record<string, { texto: string; cor: string }> = {
+  menor_oferta: { texto: "menor oferta do produto", cor: "text-subtle" },
+  outro_vendedor: { texto: "anúncio escolhido fora do ar · mostrando a menor oferta", cor: "text-warn" },
+  paused: { texto: "Anúncio pausado", cor: "text-warn" },
+  closed: { texto: "Anúncio encerrado", cor: "text-danger" },
+  under_review: { texto: "Anúncio em revisão", cor: "text-warn" },
+  inactive: { texto: "Anúncio inativo", cor: "text-danger" },
+};
+
+function SituacaoColeta({ v }: { v: Vinculo }) {
+  const situacao = v.situacao_anuncio && SITUACAO_ANUNCIO[v.situacao_anuncio];
+  return (
+    <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
+      {v.erro_coleta ? (
+        <span className="text-warn" title={v.erro_coleta}>
+          Não foi possível ler o anúncio
+        </span>
+      ) : v.preco_atualizado_em ? (
+        <span className="flex items-center gap-1 text-subtle" title={fmtDataHora(v.preco_atualizado_em)}>
+          <RefreshCw className="size-3" /> atualizado {fmtRelativo(v.preco_atualizado_em)}
+        </span>
+      ) : (
+        <span className="flex items-center gap-1 text-subtle">
+          <RefreshCw className="size-3" /> aguardando 1ª atualização
+        </span>
+      )}
+      {v.frete_gratis && <span className="text-ok">frete grátis</span>}
+      {situacao && <span className={situacao.cor}>{situacao.texto}</span>}
+    </p>
+  );
+}
+
+const CORES_SERIE = ["var(--primary)", "var(--ai)", "var(--ok)", "var(--warn)"];
+
+function HistoricoPrecos({ produto }: { produto: Produto }) {
+  const historico = useQuery({ queryKey: ["historico-precos", produto.id], queryFn: () => api.historicoPrecos(produto.id) });
+  const pontos = historico.data ?? [];
+  if (historico.isLoading) return <Esqueleto className="h-64 rounded-xl" />;
+
+  const series = new Map<number, { nome: string; dados: { t: number; preco: number }[] }>();
+  for (const p of pontos) {
+    const s = series.get(p.vinculo_id) ?? { nome: p.fornecedor_nome, dados: [] };
+    s.dados.push({ t: new Date(p.coletado_em).getTime(), preco: p.preco });
+    series.set(p.vinculo_id, s);
+  }
+
+  // Resumo dos últimos 30 dias, considerando o menor preço entre as lojas monitoradas
+  const limite = Date.now() - 30 * 86400000;
+  const recentes = pontos.filter((p) => new Date(p.coletado_em).getTime() >= limite);
+  const atuais = produto.fornecedores.filter((f) => f.monitorado && f.preco != null && !f.erro_coleta);
+  const atual = atuais.length ? Math.min(...atuais.map((f) => f.preco!)) : null;
+  const media = recentes.length ? recentes.reduce((s, p) => s + p.preco, 0) / recentes.length : null;
+  const minimo = recentes.length ? Math.min(...recentes.map((p) => p.preco)) : null;
+  const bomMomento = atual != null && media != null && recentes.length >= 3 && (atual <= minimo! || atual <= media * 0.92);
+  const variacao = atual != null && media ? ((atual - media) / media) * 100 : null;
+
+  return (
+    <Card>
+      <CardHeader
+        titulo="Preço no Mercado Livre"
+        descricao={pontos.length ? "Atualizado automaticamente todo dia" : "O primeiro preço aparece depois da próxima atualização"}
+        icone={<TrendingDown />}
+        acao={
+          bomMomento && (
+            <Badge tom="ok">
+              <TrendingDown className="size-3" /> Bom momento para comprar
+            </Badge>
+          )
+        }
+      />
+      {pontos.length === 0 ? (
+        <p className="px-5 py-6 text-sm text-muted">Nenhuma leitura ainda.</p>
+      ) : (
+        <>
+          <dl className="grid grid-cols-3 gap-4 border-b border-line px-5 py-4 text-sm">
+            <div>
+              <dt className="text-xs text-subtle">Hoje</dt>
+              <dd className="tabular mt-0.5 font-semibold">{atual != null ? fmtMoeda(atual) : "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-subtle">Média 30 dias</dt>
+              <dd className="tabular mt-0.5">
+                {media != null ? fmtMoeda(media) : "—"}
+                {variacao != null && Math.abs(variacao) >= 1 && (
+                  <span className={cn("ml-1.5 text-xs", variacao < 0 ? "text-ok" : "text-danger")}>
+                    {variacao > 0 ? "+" : ""}
+                    {variacao.toFixed(0)}%
+                  </span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-subtle">Menor em 30 dias</dt>
+              <dd className="tabular mt-0.5">{minimo != null ? fmtMoeda(minimo) : "—"}</dd>
+            </div>
+          </dl>
+          <div className="h-56 px-2 pt-4 pb-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid stroke="var(--border)" strokeDasharray="3 4" vertical={false} />
+                <XAxis
+                  dataKey="t"
+                  type="number"
+                  scale="time"
+                  domain={["dataMin", "dataMax"]}
+                  allowDuplicatedCategory={false}
+                  tickFormatter={(t: number) => fmtDiaMes(t)}
+                  tick={{ fill: "var(--subtle)", fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  minTickGap={32}
+                />
+                <YAxis
+                  tickFormatter={(v: number) => fmtMoeda(v).replace(/,00$/, "")}
+                  tick={{ fill: "var(--subtle)", fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={72}
+                  domain={["auto", "auto"]}
+                />
+                <Tooltip
+                  cursor={{ stroke: "var(--border-strong)" }}
+                  content={({ active, payload }) =>
+                    active && payload?.length ? (
+                      <div className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-xs shadow-xl">
+                        <p className="text-muted">{fmtDataHora(new Date(payload[0]!.payload.t).toISOString())}</p>
+                        {payload.map((x) => (
+                          <p key={String(x.name)} className="tabular mt-0.5">
+                            <span className="text-muted">{x.name}:</span> <span className="font-medium">{fmtMoeda(Number(x.value))}</span>
+                          </p>
+                        ))}
+                      </div>
+                    ) : null
+                  }
+                />
+                {series.size > 1 && <Legend wrapperStyle={{ fontSize: 12 }} />}
+                {[...series.entries()].map(([id, s], i) => (
+                  <Line
+                    key={id}
+                    data={s.dados}
+                    dataKey="preco"
+                    name={s.nome}
+                    type="stepAfter"
+                    stroke={CORES_SERIE[i % CORES_SERIE.length]}
+                    strokeWidth={2}
+                    dot={s.dados.length < 15 ? { r: 2.5 } : false}
+                    isAnimationActive={false}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
+

@@ -11,3 +11,6 @@ frontend/dist/
 # IDE
 .idea/
 .vscode/
+
+# Segredos locais
+backend/.env
