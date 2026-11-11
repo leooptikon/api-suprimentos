@@ -128,6 +128,8 @@ def url_autorizacao(db: Session) -> str:
             "state": reg.estado_pendente,
             "code_challenge": desafio,
             "code_challenge_method": "S256",
+            # Sem "offline_access" o Mercado Livre não devolve refresh token e a conexão cai em 6 h
+            "scope": "offline_access read",
         }
     )
 

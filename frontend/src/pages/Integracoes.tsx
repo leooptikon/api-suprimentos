@@ -230,8 +230,9 @@ function CartaoMercadoLivre({ s, admin }: { s: StatusML; admin: boolean }) {
                 <div>
                   <p className="font-medium">A conexão não se renova sozinha e expira {s.expira_em ? `às ${fmtDataHora(s.expira_em)}` : "em breve"}.</p>
                   <p className="mt-1 text-muted">
-                    O Mercado Livre não enviou a permissão de renovação. No DevCenter, edite a aplicação, ative <strong className="text-fg">acesso offline</strong>{" "}
-                    (offline_access / refresh token), salve e depois clique em <strong className="text-fg">Desconectar</strong> e conecte de novo.
+                    O Mercado Livre não enviou a permissão de renovação. Clique em <strong className="text-fg">Desconectar</strong> e conecte de novo: o site
+                    agora pede o <strong className="text-fg">acesso offline</strong> na autorização. Se mesmo assim continuar temporária, verifique as
+                    permissões da aplicação no DevCenter.
                   </p>
                 </div>
               </div>
