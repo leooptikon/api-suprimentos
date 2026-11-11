@@ -3,3 +3,5 @@ uvicorn[standard]>=0.30
 sqlalchemy>=2.0
 pydantic>=2.7
 openpyxl>=3.1
+# Fusos horários (America/Sao_Paulo) — o Windows não traz essa tabela no sistema
+tzdata>=2024.1
