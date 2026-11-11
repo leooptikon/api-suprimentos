@@ -1,0 +1,191 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
+
+/* ---------- Tokens (tema escuro é o padrão) ---------- */
+:root {
+  --bg: #0b0f17;
+  --surface: #111725;
+  --surface-2: #172032;
+  --border: #212b3d;
+  --border-strong: #2d3a51;
+  --text: #e6ebf2;
+  --muted: #95a1b3;
+  --subtle: #76839a;
+
+  --primary: #22d3ee;
+  --primary-strong: #06b6d4;
+  --primary-fg: #03141b;
+  --primary-soft: rgb(34 211 238 / 0.12);
+
+  --ai: #a78bfa;
+  --ai-strong: #8b5cf6;
+  --ai-soft: rgb(139 92 246 / 0.14);
+
+  --ok: #34d399;
+  --ok-soft: rgb(16 185 129 / 0.14);
+  --warn: #fbbf24;
+  --warn-soft: rgb(245 158 11 / 0.14);
+  --danger: #fb7185;
+  --danger-strong: #f43f5e;
+  --danger-soft: rgb(244 63 94 / 0.14);
+
+  --grid-line: rgb(148 163 184 / 0.045);
+  --glow: rgb(34 211 238 / 0.10);
+  --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: #f4f6fa;
+  --surface: #ffffff;
+  --surface-2: #eef2f7;
+  --border: #e1e6ee;
+  --border-strong: #cbd3df;
+  --text: #0e1420;
+  --muted: #4f5a6e;
+  --subtle: #6b7588;
+
+  --primary: #0891b2;
+  --primary-strong: #0e7490;
+  --primary-fg: #ffffff;
+  --primary-soft: rgb(8 145 178 / 0.10);
+
+  --ai: #7c3aed;
+  --ai-strong: #6d28d9;
+  --ai-soft: rgb(124 58 237 / 0.10);
+
+  --ok: #059669;
+  --ok-soft: rgb(5 150 105 / 0.10);
+  --warn: #b45309;
+  --warn-soft: rgb(217 119 6 / 0.12);
+  --danger: #e11d48;
+  --danger-strong: #be123c;
+  --danger-soft: rgb(225 29 72 / 0.10);
+
+  --grid-line: rgb(15 23 42 / 0.045);
+  --glow: rgb(8 145 178 / 0.08);
+  --shadow: 0 1px 2px rgb(15 23 42 / 0.05), 0 8px 24px -16px rgb(15 23 42 / 0.25);
+  color-scheme: light;
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-fg: var(--text);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-primary: var(--primary);
+  --color-primary-strong: var(--primary-strong);
+  --color-primary-fg: var(--primary-fg);
+  --color-primary-soft: var(--primary-soft);
+  --color-ai: var(--ai);
+  --color-ai-strong: var(--ai-strong);
+  --color-ai-soft: var(--ai-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-strong: var(--danger-strong);
+  --color-danger-soft: var(--danger-soft);
+  --shadow-card: var(--shadow);
+}
+
+/* ---------- Base ---------- */
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(1200px 500px at 70% -10%, var(--glow), transparent 70%),
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: auto, 32px 32px, 32px 32px;
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--primary-soft);
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Diálogo nativo: foco preso e Esc já vêm de graça */
+dialog::backdrop {
+  background: rgb(3 7 14 / 0.62);
+  backdrop-filter: blur(4px);
+}
+
+dialog[open] {
+  animation: dialog-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.animate-in {
+  animation: fade-up 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+  body {
+    background: #fff !important;
+    color: #000;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
