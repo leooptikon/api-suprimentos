@@ -50,8 +50,6 @@ cd ../backend && .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8010
 O backend passa a entregar o site compilado em `http://<ip-da-máquina>:8010`.
 Se estiver atrás de HTTPS, defina `COOKIE_SEGURO=1`.
 
-> **Etiquetas QR:** imprima as etiquetas acessando o site pelo **IP da máquina na rede** (ex.: `http://192.168.0.10:8010`), não por `localhost` — o QR guarda o endereço usado na hora da impressão.
-
 ### Variáveis de ambiente
 
 | Variável | Padrão | Para quê |
@@ -75,7 +73,7 @@ Toda movimentação guarda **quem retirou** e **quem anotou** no sistema.
 ## Roadmap
 
 - [x] **Fase 1** — Produtos, fornecedores, pessoas, retiradas/entradas/correções, dashboard, exportação Excel, login por usuário com papéis
-- [x] **Fase 1.5** — Busca de produto na retirada, “Desfazer”, cores/ícones por categoria, fotos dos produtos, etiquetas QR, gráfico de saldo, movimentações por dia, guia de primeiros passos
+- [x] **Fase 1.5** — Busca de produto na retirada, “Desfazer”, cores/ícones por categoria, fotos dos produtos, gráfico de saldo, movimentações por dia, guia de primeiros passos, lista de compras (Excel/texto) e botão “Comprar” com o link da loja
 - [ ] **Fase 2** — Projetos/receitas (ex.: carrinho Olie), “quantos consigo montar”, retirada por montagem
 - [ ] **Fase 3** — IA de preços: pesquisa diária (Mercado Livre, Shopee, KaBuM…), histórico e recomendação de compra
 - [ ] **Fase 4** — Deploy, importação da planilha atual, alertas por e-mail/Slack

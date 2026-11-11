@@ -7,8 +7,8 @@ import { AcoesProvider } from "./components/acoes";
 import { AuthProvider } from "./components/auth";
 import { Layout } from "./components/Layout";
 import "./index.css";
+import { Compras } from "./pages/Compras";
 import { Dashboard } from "./pages/Dashboard";
-import { Etiquetas } from "./pages/Etiquetas";
 import { Fornecedores } from "./pages/Fornecedores";
 import { Movimentacoes } from "./pages/Movimentacoes";
 import { Pessoas } from "./pages/Pessoas";
@@ -30,10 +30,10 @@ createRoot(document.getElementById("root")!).render(
                 <Route index element={<Dashboard />} />
                 <Route path="produtos" element={<Produtos />} />
                 <Route path="produtos/:id" element={<ProdutoDetalhe />} />
+                <Route path="compras" element={<Compras />} />
                 <Route path="movimentacoes" element={<Movimentacoes />} />
                 <Route path="fornecedores" element={<Fornecedores />} />
                 <Route path="pessoas" element={<Pessoas />} />
-                <Route path="etiquetas" element={<Etiquetas />} />
                 <Route path="*" element={<Dashboard />} />
               </Route>
             </Routes>

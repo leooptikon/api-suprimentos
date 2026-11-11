@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useAcoes } from "../components/acoes";
 import { useAuth } from "../components/auth";
+import { BotaoComprar } from "../components/BotaoComprar";
 import { CabecalhoPagina } from "../components/Layout";
 import { PrimeirosPassos } from "../components/PrimeirosPassos";
 import { Botao, Card, CardHeader, cn, Esqueleto, MedidorEstoque, StatusBadge, Vazio } from "../components/ui";
@@ -233,7 +234,18 @@ export function Dashboard() {
             </Card>
 
             <Card>
-              <CardHeader titulo="Precisa de atenção" descricao="Itens esgotados ou no mínimo" icone={<AlertTriangle />} />
+              <CardHeader
+                titulo="Precisa de atenção"
+                descricao="Itens esgotados ou no mínimo"
+                icone={<AlertTriangle />}
+                acao={
+                  d.alertas.length > 0 && (
+                    <Link to="/compras" className="text-xs font-medium text-primary hover:underline">
+                      Lista de compras
+                    </Link>
+                  )
+                }
+              />
               {d.alertas.length === 0 ? (
                 <Vazio icone={<Package />} titulo="Tudo em ordem" texto="Nenhum item abaixo do estoque mínimo." />
               ) : (
@@ -255,6 +267,7 @@ export function Dashboard() {
                           </span>
                         </div>
                       </div>
+                      <BotaoComprar produto={p} compacto />
                       <Botao
                         tamanho="icon"
                         variante="ghost"

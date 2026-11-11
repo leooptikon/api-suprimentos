@@ -10,8 +10,8 @@ import {
   Moon,
   Package,
   PackagePlus,
-  QrCode,
   Search,
+  ShoppingCart,
   Store,
   Sun,
   Users,
@@ -30,10 +30,10 @@ import { Avatar, Badge, Botao, Campo, cn, Input, Kbd, Modal, StatusBadge } from 
 const NAV = [
   { to: "/", rotulo: "Visão geral", icone: <LayoutDashboard />, fim: true },
   { to: "/produtos", rotulo: "Produtos", icone: <Package /> },
+  { to: "/compras", rotulo: "Lista de compras", icone: <ShoppingCart /> },
   { to: "/movimentacoes", rotulo: "Movimentações", icone: <ArrowLeftRight /> },
   { to: "/fornecedores", rotulo: "Fornecedores", icone: <Store /> },
   { to: "/pessoas", rotulo: "Pessoas", icone: <Users /> },
-  { to: "/etiquetas", rotulo: "Etiquetas QR", icone: <QrCode /> },
 ];
 
 
@@ -55,6 +55,8 @@ function Logo() {
 }
 
 function Sidebar({ aoNavegar }: { aoNavegar?: () => void }) {
+  const compras = useQuery({ queryKey: ["compras"], queryFn: api.compras, staleTime: 60_000 });
+  const aComprar = compras.data?.length ?? 0;
   return (
     <nav className="flex h-full flex-col gap-6 px-3 py-5">
       <div className="px-2">
@@ -78,7 +80,12 @@ function Sidebar({ aoNavegar }: { aoNavegar?: () => void }) {
                 <>
                   {isActive && <span className="absolute top-2 bottom-2 -left-3 w-0.5 rounded-r bg-primary shadow-[0_0_10px_var(--primary)]" />}
                   <span className={cn(isActive ? "text-primary" : "text-subtle group-hover:text-muted")}>{n.icone}</span>
-                  {n.rotulo}
+                  <span className="flex-1">{n.rotulo}</span>
+                  {n.to === "/compras" && aComprar > 0 && (
+                    <span className="tabular rounded-full bg-warn-soft px-1.5 text-[11px] font-medium text-warn" aria-label={`${aComprar} itens para comprar`}>
+                      {aComprar}
+                    </span>
+                  )}
                 </>
               )}
             </NavLink>
@@ -342,8 +349,8 @@ export function Layout() {
   }, []);
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[248px_1fr] print:block">
-      <aside className="sticky top-0 hidden h-screen border-r print:hidden! border-line bg-surface/60 backdrop-blur-xl lg:block">
+    <div className="min-h-screen lg:grid lg:grid-cols-[248px_1fr]">
+      <aside className="sticky top-0 hidden h-screen border-r border-line bg-surface/60 backdrop-blur-xl lg:block">
         <Sidebar />
       </aside>
 
@@ -360,7 +367,7 @@ export function Layout() {
       )}
 
       <div className="flex min-w-0 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 print:hidden items-center gap-3 border-b border-line bg-bg/70 px-4 backdrop-blur-xl sm:px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line bg-bg/70 px-4 backdrop-blur-xl sm:px-6">
           <Botao variante="ghost" tamanho="icon" className="lg:hidden" onClick={() => setMenu(true)} aria-label="Abrir menu">
             <Menu />
           </Botao>
@@ -386,7 +393,7 @@ export function Layout() {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 sm:px-6 lg:py-8 print:max-w-none print:p-0">
+        <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 sm:px-6 lg:py-8">
           <Outlet />
         </main>
       </div>

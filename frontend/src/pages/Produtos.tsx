@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useAcoes, useInvalidar } from "../components/acoes";
 import { useAuth } from "../components/auth";
+import { BotaoComprar } from "../components/BotaoComprar";
 import { CabecalhoPagina } from "../components/Layout";
 import { Botao, Card, cn, Esqueleto, Input, MedidorEstoque, Select, StatusBadge, Vazio } from "../components/ui";
 import { api, type StatusEstoque } from "../lib/api";
@@ -223,6 +224,7 @@ export function Produtos() {
                           </Botao>
                         ) : (
                           <>
+                            <BotaoComprar produto={p} compacto />
                             <Botao
                               tamanho="icon"
                               variante="ghost"

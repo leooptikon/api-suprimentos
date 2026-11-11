@@ -3,7 +3,6 @@ import { Check, ChevronRight, Rocket, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { GUIA_ETIQUETAS } from "../pages/Etiquetas";
 import { useAcoes } from "./acoes";
 import { useAuth } from "./auth";
 import { Botao, Card, cn } from "./ui";
@@ -51,12 +50,6 @@ export function PrimeirosPassos({ totalProdutos }: { totalProdutos: number }) {
       feito: comAcesso >= 2,
       link: "/pessoas",
     },
-    {
-      titulo: "Imprima as etiquetas QR",
-      texto: "Cole nas gavetas: apontar o celular já abre a retirada.",
-      feito: lerFlag(GUIA_ETIQUETAS),
-      link: "/etiquetas",
-    },
   ];
   const feitos = passos.filter((p) => p.feito).length;
   if (feitos === passos.length) return null;
@@ -90,7 +83,7 @@ export function PrimeirosPassos({ totalProdutos }: { totalProdutos: number }) {
           <X />
         </Botao>
       </div>
-      <ol className="grid divide-line sm:grid-cols-2 sm:divide-x xl:grid-cols-4">
+      <ol className="grid divide-line sm:grid-cols-3 sm:divide-x">
         {passos.map((p, i) => (
           <li key={p.titulo} className={cn("flex gap-3 border-line p-4 max-sm:border-b max-sm:last:border-b-0", i === proximo && "bg-surface-2/40")}>
             <span

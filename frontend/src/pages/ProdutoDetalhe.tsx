@@ -13,18 +13,18 @@ import {
   LineChart,
   Pencil,
   Plus,
-  QrCode,
   Scale,
   Star,
   Store,
   Trash2,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 import { useAcoes, useInvalidar } from "../components/acoes";
 import { useAuth } from "../components/auth";
+import { BotaoComprar } from "../components/BotaoComprar";
 import { CabecalhoPagina } from "../components/Layout";
 import { Badge, Botao, Campo, Card, CardHeader, cn, Confirmar, Esqueleto, Input, MedidorEstoque, Modal, Select, StatusBadge, Switch, Vazio } from "../components/ui";
 import { api, type Movimentacao, type ProdutoDetalhe as Produto, type Vinculo } from "../lib/api";
@@ -72,15 +72,6 @@ export function ProdutoDetalhe() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const [params, setParams] = useSearchParams();
-
-  // Veio do QR code da gaveta: abre a retirada direto
-  useEffect(() => {
-    if (params.get("acao") === "retirar" && produto.data && !produto.data.arquivado) {
-      acoes.movimentar({ produto: produto.data, tipo: "retirada" });
-      setParams({}, { replace: true });
-    }
-  }, [params, produto.data, acoes, setParams]);
 
   if (produto.isLoading) {
     return (
@@ -132,11 +123,6 @@ export function ProdutoDetalhe() {
             )
           ) : (
             <>
-              <Link to={`/etiquetas?ids=${p.id}`} tabIndex={-1}>
-                <Botao variante="ghost" tamanho="icon" title="Etiqueta QR" aria-label="Imprimir etiqueta QR">
-                  <QrCode />
-                </Botao>
-              </Link>
               {admin && (
                 <>
                   <Botao variante="ghost" tamanho="icon" title="Arquivar" aria-label="Arquivar produto" onClick={() => setConfirmar("arquivar")}>
@@ -150,6 +136,7 @@ export function ProdutoDetalhe() {
                   </Botao>
                 </>
               )}
+              <BotaoComprar produto={p} />
               <Botao onClick={() => acoes.movimentar({ produto: p, tipo: "entrada" })}>
                 <ArrowDownToLine /> Entrada
               </Botao>

@@ -143,6 +143,8 @@ class ProdutoOut(ProdutoBase):
     fornecedor_preferido: str | None = None
     menor_preco: float | None = None
     foto_url: str | None = None
+    link_compra: str | None = None
+    loja_compra: str | None = None
 
 
 class ProdutoDetalhe(ProdutoOut):
@@ -208,3 +210,30 @@ class DashboardOut(BaseModel):
     serie_14d: list[SerieDia]
     mais_retirados: list[RankingItem]
     ultimas: list[MovimentacaoOut]
+
+
+# ---------- Lista de compras ----------
+class OpcaoCompra(BaseModel):
+    fornecedor_id: int
+    fornecedor_nome: str
+    preco: float | None
+    url: str | None
+    preferido: bool
+
+
+class ItemCompra(BaseModel):
+    produto: ProdutoOut
+    sugestao: float
+    meta: float
+    opcoes: list[OpcaoCompra]
+    fornecedor_sugerido_id: int | None
+
+
+class ItemExportar(BaseModel):
+    produto_id: int
+    quantidade: float = Field(gt=0)
+    fornecedor_id: int | None = None
+
+
+class ExportarComprasIn(BaseModel):
+    itens: list[ItemExportar] = Field(min_length=1, max_length=500)

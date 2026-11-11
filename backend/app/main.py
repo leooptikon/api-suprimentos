@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text
 
 from .db import Base, engine
-from .routers import autenticacao, cadastros, movimentacoes, produtos
+from .routers import autenticacao, cadastros, compras, movimentacoes, produtos
 
 Base.metadata.create_all(engine)
 
@@ -51,6 +51,7 @@ app.include_router(produtos.router)
 app.include_router(cadastros.fornecedores)
 app.include_router(cadastros.pessoas)
 app.include_router(movimentacoes.router)
+app.include_router(compras.router)
 
 
 @app.get("/api/saude", tags=["Sistema"])

@@ -18,8 +18,17 @@ def menor_preco(p: models.Produto) -> float | None:
     return min(precos) if precos else None
 
 
+def link_compra(p: models.Produto) -> models.ProdutoFornecedor | None:
+    """Onde comprar: o preferido; senão o mais barato; senão qualquer um — sempre entre os que têm link."""
+    com_link = [v for v in p.fornecedores if v.url]
+    if not com_link:
+        return None
+    return min(com_link, key=lambda v: (not v.preferido, v.preco is None, v.preco or 0))
+
+
 def produto_out(p: models.Produto) -> schemas.ProdutoOut:
     preferido = next((pf.fornecedor.nome for pf in p.fornecedores if pf.preferido), None)
+    compra = link_compra(p)
     return schemas.ProdutoOut(
         **schemas.ProdutoBase.model_validate(p).model_dump(),
         id=p.id,
@@ -32,6 +41,8 @@ def produto_out(p: models.Produto) -> schemas.ProdutoOut:
         menor_preco=menor_preco(p),
         # O nome do arquivo muda a cada envio, então serve de versão para o cache do navegador
         foto_url=f"/api/produtos/{p.id}/foto?v={p.foto}" if p.foto else None,
+        link_compra=compra.url if compra else None,
+        loja_compra=compra.fornecedor.nome if compra else None,
     )
 
 

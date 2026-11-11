@@ -18,6 +18,8 @@ export interface Produto {
   fornecedor_preferido: string | null;
   menor_preco: number | null;
   foto_url: string | null;
+  link_compra: string | null;
+  loja_compra: string | null;
 }
 
 export interface Vinculo {
@@ -119,6 +121,22 @@ export interface Dashboard {
   ultimas: Movimentacao[];
 }
 
+export interface OpcaoCompra {
+  fornecedor_id: number;
+  fornecedor_nome: string;
+  preco: number | null;
+  url: string | null;
+  preferido: boolean;
+}
+
+export interface ItemCompra {
+  produto: Produto;
+  sugestao: number;
+  meta: number;
+  opcoes: OpcaoCompra[];
+  fornecedor_sugerido_id: number | null;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -208,6 +226,25 @@ export const api = {
     http<Movimentacao[]>("GET", `/api/movimentacoes${qs(f)}`),
   registrar: (d: MovimentacaoForm) => http<Movimentacao>("POST", "/api/movimentacoes", d),
   desfazer: (id: number) => http<Movimentacao>("POST", `/api/movimentacoes/${id}/desfazer`),
+
+  compras: () => http<ItemCompra[]>("GET", "/api/compras"),
+  /** POST que devolve arquivo: baixa sem sair da página */
+  exportarCompras: async (itens: { produto_id: number; quantidade: number; fornecedor_id: number | null }[]) => {
+    const resp = await fetch("/api/compras/exportar.xlsx", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itens }),
+    });
+    if (!resp.ok) throw new ApiError(`Erro ${resp.status} ao gerar a planilha`, resp.status);
+    const nome = /filename="([^"]+)"/.exec(resp.headers.get("content-disposition") ?? "")?.[1] ?? "lista-de-compras.xlsx";
+    const url = URL.createObjectURL(await resp.blob());
+    const a = Object.assign(document.createElement("a"), { href: url, download: nome });
+    // O link precisa estar na página e a URL viva até o navegador começar o download
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  },
 
   exportarUrl: (tipo: "estoque" | "movimentacoes", f: { de?: string; ate?: string } = {}) =>
     `/api/exportar/${tipo}.xlsx${qs(f)}`,

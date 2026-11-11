@@ -1,22 +1,14 @@
-import os
 from datetime import date, datetime, time, timedelta, timezone
-from io import BytesIO
 from typing import Literal
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
-from openpyxl.utils import get_column_letter
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from .. import models, schemas, services
 from ..auth import usuario_atual
 from ..db import get_db
-
-FUSO = ZoneInfo(os.getenv("TZ_ESCRITORIO", "America/Sao_Paulo"))
+from ..planilhas import FUSO, download, planilha
 
 router = APIRouter(prefix="/api", tags=["Movimentações"], dependencies=[Depends(usuario_atual)])
 
@@ -168,40 +160,6 @@ def dashboard(db: Session = Depends(get_db)):
 
 
 # ---------- Exportação para Excel ----------
-_CABECALHO = PatternFill("solid", fgColor="0E7490")
-
-
-def _planilha(titulo: str, colunas: list[str], linhas: list[list]) -> BytesIO:
-    wb = Workbook()
-    ws = wb.active
-    ws.title = titulo
-    ws.append(colunas)
-    for c in ws[1]:
-        c.font = Font(bold=True, color="FFFFFF")
-        c.fill = _CABECALHO
-        c.alignment = Alignment(vertical="center")
-    for linha in linhas:
-        ws.append(linha)
-    for i, col in enumerate(colunas, start=1):
-        largura = max([len(str(col))] + [len(str(l[i - 1] or "")) for l in linhas])
-        ws.column_dimensions[get_column_letter(i)].width = min(max(largura + 2, 10), 60)
-    ws.freeze_panes = "A2"
-    ws.auto_filter.ref = ws.dimensions
-    buf = BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    return buf
-
-
-def _download(buf: BytesIO, nome: str) -> StreamingResponse:
-    carimbo = datetime.now(FUSO).strftime("%Y-%m-%d")
-    return StreamingResponse(
-        buf,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{nome}-{carimbo}.xlsx"'},
-    )
-
-
 @router.get("/exportar/estoque.xlsx", tags=["Exportação"])
 def exportar_estoque(db: Session = Depends(get_db)):
     produtos = db.scalars(
@@ -218,7 +176,7 @@ def exportar_estoque(db: Session = Depends(get_db)):
                        p.localizacao, out.fornecedor_preferido, out.menor_preco, p.descricao])
     colunas = ["Produto", "Categoria", "Quantidade", "Unidade", "Estoque mínimo", "Situação",
                "Localização", "Fornecedor preferido", "Menor preço (R$)", "Descrição"]
-    return _download(_planilha("Estoque", colunas, linhas), "estoque")
+    return download(planilha("Estoque", colunas, linhas), "estoque")
 
 
 @router.get("/exportar/movimentacoes.xlsx", tags=["Exportação"])
@@ -236,4 +194,4 @@ def exportar_movimentacoes(de: date | None = None, ate: date | None = None, db: 
     ]
     colunas = ["Data", "Tipo", "Produto", "Quantidade", "Unidade", "Saldo após", "Responsável", "Motivo",
                "Registrado por", "Situação"]
-    return _download(_planilha("Movimentações", colunas, linhas), "movimentacoes")
+    return download(planilha("Movimentações", colunas, linhas), "movimentacoes")
