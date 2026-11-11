@@ -21,7 +21,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } 
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { MiniaturaProduto } from "../lib/categorias";
-import { fmtNum } from "../lib/format";
+import { fmtNum, SENHA_MIN } from "../lib/format";
 import { toast } from "sonner";
 import { useAcoes } from "./acoes";
 import { useAuth } from "./auth";
@@ -136,7 +136,7 @@ function TrocarSenha({ aoFechar }: { aoFechar: () => void }) {
     onError: (e: Error) => toast.error(e.message),
   });
   const diferente = confirma.length > 0 && confirma !== nova;
-  const valido = atual && nova.length >= 8 && nova === confirma;
+  const valido = atual && nova.length >= SENHA_MIN && nova === confirma;
   return (
     <Modal
       aberto
@@ -166,7 +166,7 @@ function TrocarSenha({ aoFechar }: { aoFechar: () => void }) {
         <Campo rotulo="Senha atual">
           {(id) => <Input id={id} type="password" autoComplete="current-password" value={atual} onChange={(e) => setAtual(e.target.value)} autoFocus />}
         </Campo>
-        <Campo rotulo="Nova senha" dica="Mínimo de 8 caracteres">
+        <Campo rotulo="Nova senha" dica={`Mínimo de ${SENHA_MIN} caracteres`}>
           {(id) => <Input id={id} type="password" autoComplete="new-password" value={nova} onChange={(e) => setNova(e.target.value)} />}
         </Campo>
         <Campo rotulo="Confirme a nova senha" erro={diferente ? "As senhas não conferem" : undefined}>

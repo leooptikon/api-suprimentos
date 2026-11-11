@@ -38,6 +38,7 @@ class PessoaIn(_Base):
 
 
 Papel = Literal["admin", "membro"]
+SENHA_MIN = 4
 
 
 def _normaliza_usuario(v):
@@ -57,7 +58,7 @@ class PessoaOut(PessoaIn):
 class AcessoIn(_Base):
     usuario: str = Field(**USUARIO_REGRA, description="Letras minúsculas, números, ponto, hífen ou _")
     papel: Papel
-    senha: str | None = Field(default=None, min_length=8, max_length=128, description="Obrigatória ao liberar o acesso pela primeira vez")
+    senha: str | None = Field(default=None, min_length=SENHA_MIN, max_length=128, description="Obrigatória ao liberar o acesso pela primeira vez")
 
     _usuario = field_validator("usuario", mode="before")(_normaliza_usuario)
 
@@ -71,14 +72,14 @@ class LoginIn(_Base):
 class ConfigurarIn(_Base):
     nome: str = Field(min_length=1, max_length=120)
     usuario: str = Field(**USUARIO_REGRA)
-    senha: str = Field(min_length=8, max_length=128)
+    senha: str = Field(min_length=SENHA_MIN, max_length=128)
 
     _usuario = field_validator("usuario", mode="before")(_normaliza_usuario)
 
 
 class TrocarSenhaIn(BaseModel):
     atual: str = Field(min_length=1, max_length=128)
-    nova: str = Field(min_length=8, max_length=128)
+    nova: str = Field(min_length=SENHA_MIN, max_length=128)
 
 
 class UsuarioOut(_Base):

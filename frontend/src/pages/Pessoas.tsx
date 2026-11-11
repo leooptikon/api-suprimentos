@@ -7,7 +7,7 @@ import { useAuth } from "../components/auth";
 import { CabecalhoPagina } from "../components/Layout";
 import { Avatar, Badge, Botao, Campo, Card, cn, Confirmar, Esqueleto, Input, Modal, Switch, Vazio } from "../components/ui";
 import { api, type Papel, type Pessoa } from "../lib/api";
-import { limparUsuario, sugerirUsuario, USUARIO_VALIDO } from "../lib/format";
+import { limparUsuario, SENHA_MIN, sugerirUsuario, USUARIO_VALIDO } from "../lib/format";
 
 export function Pessoas() {
   const { admin, usuario } = useAuth();
@@ -212,7 +212,7 @@ function AcessoModal({ pessoa, aoFechar }: { pessoa: Pessoa; aoFechar: () => voi
   const [papel, setPapel] = useState<Papel>(pessoa.papel ?? "membro");
   const [senha, setSenha] = useState("");
 
-  const senhaOk = primeira ? senha.length >= 8 : senha.length === 0 || senha.length >= 8;
+  const senhaOk = primeira ? senha.length >= SENHA_MIN : senha.length === 0 || senha.length >= SENHA_MIN;
   const usuarioOk = USUARIO_VALIDO.test(usuario);
   const valido = usuarioOk && senhaOk;
 
@@ -301,8 +301,8 @@ function AcessoModal({ pessoa, aoFechar }: { pessoa: Pessoa; aoFechar: () => voi
         <Campo
           rotulo={primeira ? "Senha inicial" : "Redefinir senha"}
           obrigatorio={primeira}
-          dica={primeira ? "Mínimo de 8 caracteres. A pessoa pode trocar depois." : "Deixe em branco para manter a senha atual."}
-          erro={senha && senha.length < 8 ? "Mínimo de 8 caracteres" : undefined}
+          dica={primeira ? `Mínimo de ${SENHA_MIN} caracteres. A pessoa pode trocar depois.` : "Deixe em branco para manter a senha atual."}
+          erro={senha && senha.length < SENHA_MIN ? `Mínimo de ${SENHA_MIN} caracteres` : undefined}
         >
           {(id) => <Input id={id} type="password" value={senha} onChange={(e) => setSenha(e.target.value)} autoComplete="new-password" />}
         </Campo>

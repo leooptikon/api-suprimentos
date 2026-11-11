@@ -3,7 +3,7 @@ import { ArrowRight, Eye, EyeOff, History, KeyRound, PackageCheck, ShieldCheck }
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Botao, Campo, Input } from "../components/ui";
 import { api, type Usuario } from "../lib/api";
-import { limparUsuario, USUARIO_VALIDO } from "../lib/format";
+import { limparUsuario, SENHA_MIN, USUARIO_VALIDO } from "../lib/format";
 
 function Recurso({ icone, titulo, texto, ia }: { icone: ReactNode; titulo: string; texto: string; ia?: boolean }) {
   return (
@@ -35,7 +35,7 @@ function CampoSenha({ id, valor, aoMudar, novo }: { id: string; valor: string; a
         value={valor}
         onChange={(e) => aoMudar(e.target.value)}
         autoComplete={novo ? "new-password" : "current-password"}
-        minLength={novo ? 8 : undefined}
+        minLength={novo ? SENHA_MIN : undefined}
         required
         className="h-10 pr-10"
       />
@@ -161,7 +161,7 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }) {
                   />
                 )}
               </Campo>
-              <Campo rotulo="Senha" dica={primeiroAcesso ? "Mínimo de 8 caracteres" : undefined}>
+              <Campo rotulo="Senha" dica={primeiroAcesso ? `Mínimo de ${SENHA_MIN} caracteres` : undefined}>
                 {(id) => <CampoSenha id={id} valor={senha} aoMudar={setSenha} novo={primeiroAcesso} />}
               </Campo>
 

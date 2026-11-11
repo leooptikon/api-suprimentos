@@ -53,6 +53,9 @@ export const iniciais = (nome: string) =>
     .map((p) => p[0]!.toUpperCase())
     .join("");
 
+/** Tamanho mínimo da senha (igual ao SENHA_MIN do backend) */
+export const SENHA_MIN = 4;
+
 /** Regra do backend: 3 a 40 caracteres, minúsculas, números, ponto, hífen ou _ */
 export const USUARIO_VALIDO = /^[a-z0-9._-]{3,40}$/;
 
