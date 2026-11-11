@@ -1,29 +1,10 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowRight, Eye, EyeOff, History, KeyRound, PackageCheck, ShieldCheck } from "lucide-react";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { MarcaTrace } from "../components/LogoTrace";
 import { Botao, Campo, Input } from "../components/ui";
 import { api, type Usuario } from "../lib/api";
 import { limparUsuario, SENHA_MIN, USUARIO_VALIDO } from "../lib/format";
-
-function Recurso({ icone, titulo, texto, ia }: { icone: ReactNode; titulo: string; texto: string; ia?: boolean }) {
-  return (
-    <li className="flex gap-3.5">
-      <span
-        className={
-          ia
-            ? "grid size-9 shrink-0 place-items-center rounded-lg border border-ai/30 bg-ai-soft text-ai [&_svg]:size-4"
-            : "grid size-9 shrink-0 place-items-center rounded-lg border border-primary/25 bg-primary-soft text-primary [&_svg]:size-4"
-        }
-      >
-        {icone}
-      </span>
-      <div>
-        <p className="text-sm font-medium">{titulo}</p>
-        <p className="mt-0.5 text-sm text-muted">{texto}</p>
-      </div>
-    </li>
-  );
-}
 
 function CampoSenha({ id, valor, aoMudar, novo }: { id: string; valor: string; aoMudar: (v: string) => void; novo?: boolean }) {
   const [ver, setVer] = useState(false);
@@ -79,7 +60,7 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }) {
   return (
     <div className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
       {/* Painel da marca */}
-      <aside className="relative hidden overflow-hidden border-r border-line bg-surface/50 lg:flex lg:flex-col lg:justify-between lg:p-12">
+      <aside className="relative hidden overflow-hidden border-r border-line bg-surface/50 lg:flex lg:flex-col lg:justify-center lg:p-12 xl:p-16">
         <div
           aria-hidden
           className="pointer-events-none absolute -top-40 -left-40 size-[520px] rounded-full opacity-60 blur-3xl"
@@ -91,39 +72,17 @@ export function Login({ aoEntrar }: { aoEntrar: (u: Usuario) => void }) {
           style={{ background: "radial-gradient(closest-side, var(--ai-soft), transparent)" }}
         />
 
-        <div className="relative flex items-center gap-2.5">
-          <span className="grid size-9 place-items-center rounded-lg border border-primary/30 bg-primary-soft shadow-[0_0_28px_-6px_var(--primary)]">
-            <svg viewBox="0 0 24 24" className="size-5 text-primary" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
-              <path d="M12 2.5 20.5 7.25v9.5L12 21.5l-8.5-4.75v-9.5z" />
-              <path d="M3.5 7.25 12 12l8.5-4.75M12 12v9.5" opacity=".55" />
-            </svg>
-          </span>
-          <span className="font-semibold tracking-tight">Suprimentos</span>
-        </div>
-
-        <div className="relative max-w-md">
-          <p className="mb-4 font-mono text-[11px] tracking-[0.2em] text-primary uppercase">Controle de estoque</p>
-          <h1 className="text-4xl leading-[1.1] font-semibold tracking-tight text-balance">
-            O estoque do escritório, <span className="text-primary">sob controle.</span>
-          </h1>
-          <p className="mt-4 text-muted">Saiba o que tem, onde está, quem pegou e quando é hora de comprar mais.</p>
-          <ul className="mt-10 flex flex-col gap-5">
-            <Recurso icone={<PackageCheck />} titulo="Saldo em tempo real" texto="Cada retirada atualiza o estoque na hora." />
-            <Recurso icone={<History />} titulo="Quem retirou o quê" texto="Histórico completo, com responsável e motivo." />
-            <Recurso icone={<ShieldCheck />} titulo="Acesso por perfil" texto="Administradores cuidam dos cadastros; membros registram retiradas." />
-          </ul>
-        </div>
-
-        <p className="relative font-mono text-[11px] text-subtle">v0.1 · fase 1</p>
+        <h1 className="relative w-full max-w-[440px]">
+          <MarcaTrace />
+        </h1>
       </aside>
 
       {/* Formulário */}
       <main className="flex items-center justify-center px-4 py-12 sm:px-8">
         <div className="animate-in w-full max-w-sm">
           <div className="mb-8">
-            <span className="mb-5 grid size-11 place-items-center rounded-xl border border-line bg-surface text-primary shadow-card lg:hidden">
-              <KeyRound className="size-5" />
-            </span>
+            {/* No celular o painel da marca some; a logo aparece aqui em cima */}
+            <MarcaTrace compacta className="mb-8 w-40 lg:hidden" />
             <h2 className="text-2xl font-semibold tracking-tight">{primeiroAcesso ? "Primeiro acesso" : "Entrar"}</h2>
             <p className="mt-1.5 text-sm text-muted">
               {primeiroAcesso
