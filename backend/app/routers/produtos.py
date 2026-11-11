@@ -30,6 +30,7 @@ def _carregar(db: Session, produto_id: int) -> models.Produto:
 def listar(
     busca: str | None = None,
     categoria: str | None = None,
+    local: str | None = Query(None, description="Local exato ou só a parte principal (ex.: 'Armário A'). Use '__sem__' para sem local."),
     status: Literal["ok", "baixo", "esgotado"] | None = None,
     arquivados: bool = False,
     db: Session = Depends(get_db),
@@ -52,11 +53,39 @@ def listar(
         )
     if categoria:
         stmt = stmt.where(models.Produto.categoria == categoria)
+    if local == SEM_LOCAL:
+        stmt = stmt.where(models.Produto.localizacao.is_(None))
+    elif local:
+        # "Armário A" pega o próprio "Armário A" e tudo dentro dele: "Armário A · Gaveta 1", "Armário A, prateleira 2"…
+        loc = models.Produto.localizacao
+        v = local.strip()
+        stmt = stmt.where(
+            or_(
+                func.lower(loc) == v.lower(),
+                loc.istartswith(v + " ", autoescape=True),
+                loc.istartswith(v + ",", autoescape=True),
+            )
+        )
 
     produtos = [services.produto_out(p) for p in db.scalars(stmt)]
     if status:
         produtos = [p for p in produtos if p.status == status]
     return produtos
+
+
+SEM_LOCAL = "__sem__"
+
+
+@router.get("/locais", response_model=list[str])
+def locais(db: Session = Depends(get_db)):
+    """Locais usados pelos produtos ativos (o site agrupa pela parte principal)."""
+    stmt = (
+        select(models.Produto.localizacao)
+        .where(models.Produto.localizacao.is_not(None), models.Produto.arquivado.is_(False))
+        .distinct()
+        .order_by(func.lower(models.Produto.localizacao))
+    )
+    return list(db.scalars(stmt))
 
 
 @router.get("/categorias", response_model=list[str])
@@ -120,6 +149,11 @@ def remover(produto_id: int, definitivo: bool = Query(False), db: Session = Depe
 
     if not produto.arquivado:
         raise HTTPException(409, "Arquive o produto antes de excluí-lo definitivamente")
+    usado_em = db.scalars(
+        select(models.ProdutoProprio.nome).join(models.Componente).where(models.Componente.produto_id == produto_id)
+    ).all()
+    if usado_em:
+        raise HTTPException(409, f"Essa peça faz parte de: {', '.join(usado_em)}. Tire-a da composição antes de excluir.")
     db.execute(delete(models.Movimentacao).where(models.Movimentacao.produto_id == produto_id))
     foto = produto.foto
     db.delete(produto)

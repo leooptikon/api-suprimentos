@@ -64,8 +64,8 @@ Se estiver atrás de HTTPS, defina `COOKIE_SEGURO=1`.
 
 | Papel | Pode |
 |---|---|
-| **Administrador** | Tudo: cadastrar/editar/arquivar/excluir produtos, fornecedores e pessoas, ajustar saldo, liberar e remover acessos |
-| **Membro** | Ver o estoque, registrar retiradas e entradas, exportar para Excel |
+| **Administrador** | Tudo: cadastrar/editar/arquivar/excluir produtos, produtos próprios, fornecedores e pessoas, corrigir contagem, cancelar montagens, liberar e remover acessos |
+| **Membro** | Ver o estoque, registrar retiradas e entradas, montar produtos próprios, mudar a situação das unidades, exportar para Excel |
 | **Sem acesso** | Não entra no site, mas aparece na lista de quem pode retirar itens |
 
 Toda movimentação guarda **quem retirou** e **quem anotou** no sistema.
@@ -74,6 +74,6 @@ Toda movimentação guarda **quem retirou** e **quem anotou** no sistema.
 
 - [x] **Fase 1** — Produtos, fornecedores, pessoas, retiradas/entradas/correções, dashboard, exportação Excel, login por usuário com papéis
 - [x] **Fase 1.5** — Busca de produto na retirada, “Desfazer”, cores/ícones por categoria, fotos dos produtos, gráfico de saldo, movimentações por dia, guia de primeiros passos, lista de compras (Excel/texto) e botão “Comprar” com o link da loja
-- [ ] **Fase 2** — Projetos/receitas (ex.: carrinho Olie), “quantos consigo montar”, retirada por montagem
+- [x] **Fase 2** — Produtos próprios (Olie, sensores…): composição, “quantos dá para montar”, montagem que retira as peças e gera nº de série, situação de cada unidade (produção, pronto, em campo, manutenção, desativado)
 - [ ] **Fase 3** — IA de preços: pesquisa diária (Mercado Livre, Shopee, KaBuM…), histórico e recomendação de compra
 - [ ] **Fase 4** — Deploy, importação da planilha atual, alertas por e-mail/Slack

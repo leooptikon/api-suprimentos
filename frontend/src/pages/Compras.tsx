@@ -181,7 +181,7 @@ export function Compras() {
                           onChange={(ev) => mudar(i, { qtd: ev.target.value })}
                           onFocus={(ev) => ev.target.select()}
                           inputMode="decimal"
-                          className="tabular w-14 rounded-none border-x-0 text-center"
+                          className="tabular w-14! rounded-none border-x-0 text-center"
                           aria-label={`Quantidade de ${p.nome}`}
                           disabled={!e.incluir}
                         />

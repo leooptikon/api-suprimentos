@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text
 
 from .db import Base, engine
-from .routers import autenticacao, cadastros, compras, movimentacoes, produtos
+from .routers import autenticacao, cadastros, compras, movimentacoes, produtos, proprios
 
 Base.metadata.create_all(engine)
 
@@ -26,6 +26,8 @@ def _migrar():
             con.execute(text("ALTER TABLE movimentacoes ADD COLUMN estorno_de_id INTEGER REFERENCES movimentacoes(id)"))
         if "foto" not in produtos_cols:
             con.execute(text("ALTER TABLE produtos ADD COLUMN foto VARCHAR(80)"))
+        if "montagem_id" not in movs:
+            con.execute(text("ALTER TABLE movimentacoes ADD COLUMN montagem_id INTEGER REFERENCES montagens(id)"))
         if "estornada" not in movs:
             con.execute(text("ALTER TABLE movimentacoes ADD COLUMN estornada BOOLEAN NOT NULL DEFAULT 0"))
 
@@ -52,6 +54,7 @@ app.include_router(cadastros.fornecedores)
 app.include_router(cadastros.pessoas)
 app.include_router(movimentacoes.router)
 app.include_router(compras.router)
+app.include_router(proprios.router)
 
 
 @app.get("/api/saude", tags=["Sistema"])

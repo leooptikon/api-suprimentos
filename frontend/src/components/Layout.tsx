@@ -3,6 +3,7 @@ import {
   ArrowLeftRight,
   ArrowUpFromLine,
   CornerDownLeft,
+  Factory,
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -30,6 +31,7 @@ import { Avatar, Badge, Botao, Campo, cn, Input, Kbd, Modal, StatusBadge } from 
 const NAV = [
   { to: "/", rotulo: "Visão geral", icone: <LayoutDashboard />, fim: true },
   { to: "/produtos", rotulo: "Produtos", icone: <Package /> },
+  { to: "/proprios", rotulo: "Produtos próprios", icone: <Factory /> },
   { to: "/compras", rotulo: "Lista de compras", icone: <ShoppingCart /> },
   { to: "/movimentacoes", rotulo: "Movimentações", icone: <ArrowLeftRight /> },
   { to: "/fornecedores", rotulo: "Fornecedores", icone: <Store /> },

@@ -77,7 +77,7 @@ export function ProdutoDetalhe() {
     return (
       <div className="flex flex-col gap-4">
         <Esqueleto className="h-16 w-80" />
-        <div className="grid gap-4 xl:grid-cols-3">
+        <div className="grid gap-4 xl:grid-cols-3 [&>*]:min-w-0">
           <Esqueleto className="h-96 rounded-xl xl:col-span-2" />
           <Esqueleto className="h-96 rounded-xl" />
         </div>
@@ -148,7 +148,7 @@ export function ProdutoDetalhe() {
         }
       />
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid gap-4 xl:grid-cols-3 [&>*]:min-w-0">
         <div className="flex flex-col gap-4 xl:order-2">
           <FotoProduto produto={p} admin={admin} />
           <Card className="relative overflow-hidden p-5">

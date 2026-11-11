@@ -269,7 +269,9 @@ export function Modal({
     if (aberto && !d.open) {
       d.showModal();
       // O autoFocus do React roda antes do showModal; foca o primeiro campo depois que o diálogo abre
-      d.querySelector<HTMLElement>("input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea")?.focus();
+      d.querySelector<HTMLElement>(
+        "input:not([type=hidden]):not([type=radio]):not([type=checkbox]):not([disabled]), select:not([disabled]), textarea",
+      )?.focus();
     }
     if (!aberto && d.open) d.close();
   }, [aberto]);

@@ -13,6 +13,7 @@ import { Fornecedores } from "./pages/Fornecedores";
 import { Movimentacoes } from "./pages/Movimentacoes";
 import { Pessoas } from "./pages/Pessoas";
 import { ProdutoDetalhe } from "./pages/ProdutoDetalhe";
+import { ProprioDetalhePagina, Proprios } from "./pages/Proprios";
 import { Produtos } from "./pages/Produtos";
 
 const queryClient = new QueryClient({
@@ -30,6 +31,8 @@ createRoot(document.getElementById("root")!).render(
                 <Route index element={<Dashboard />} />
                 <Route path="produtos" element={<Produtos />} />
                 <Route path="produtos/:id" element={<ProdutoDetalhe />} />
+                <Route path="proprios" element={<Proprios />} />
+                <Route path="proprios/:id" element={<ProprioDetalhePagina />} />
                 <Route path="compras" element={<Compras />} />
                 <Route path="movimentacoes" element={<Movimentacoes />} />
                 <Route path="fornecedores" element={<Fornecedores />} />

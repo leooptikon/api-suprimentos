@@ -137,6 +137,69 @@ export interface ItemCompra {
   fornecedor_sugerido_id: number | null;
 }
 
+export type StatusUnidade = "em_producao" | "pronto" | "em_campo" | "manutencao" | "desativado";
+
+export interface ComponenteProprio {
+  produto_id: number;
+  produto_nome: string;
+  produto_categoria: string | null;
+  produto_unidade: string;
+  produto_foto_url: string | null;
+  produto_arquivado: boolean;
+  quantidade: number;
+  em_estoque: number;
+  da_para: number;
+  falta_para_mais_um: number;
+}
+
+export interface Proprio {
+  id: number;
+  nome: string;
+  prefixo: string;
+  tipo: string | null;
+  descricao: string | null;
+  arquivado: boolean;
+  capacidade: number | null;
+  gargalo: string | null;
+  por_status: Record<StatusUnidade, number>;
+  total_unidades: number;
+  criado_em: string;
+}
+
+export interface ProprioDetalhe extends Proprio {
+  componentes: ComponenteProprio[];
+}
+
+export interface ProprioForm {
+  nome: string;
+  prefixo: string;
+  tipo: string | null;
+  descricao: string | null;
+  componentes: { produto_id: number; quantidade: number }[];
+}
+
+export interface Unidade {
+  id: number;
+  proprio_id: number;
+  proprio_nome: string;
+  numero_serie: string;
+  status: StatusUnidade;
+  local: string | null;
+  observacao: string | null;
+  montagem_id: number | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface EventoUnidade {
+  id: number;
+  status: StatusUnidade;
+  local: string | null;
+  observacao: string | null;
+  registrado_por_nome: string | null;
+  criado_em: string;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -191,9 +254,10 @@ export const api = {
 
   dashboard: () => http<Dashboard>("GET", "/api/dashboard"),
 
-  produtos: (f: { busca?: string; categoria?: string; status?: string; arquivados?: boolean } = {}) =>
+  produtos: (f: { busca?: string; categoria?: string; local?: string; status?: string; arquivados?: boolean } = {}) =>
     http<Produto[]>("GET", `/api/produtos${qs(f)}`),
   categorias: () => http<string[]>("GET", "/api/produtos/categorias"),
+  locais: () => http<string[]>("GET", "/api/produtos/locais"),
   produto: (id: number) => http<ProdutoDetalhe>("GET", `/api/produtos/${id}`),
   criarProduto: (d: ProdutoForm) => http<ProdutoDetalhe>("POST", "/api/produtos", d),
   atualizarProduto: (id: number, d: ProdutoForm) => http<ProdutoDetalhe>("PUT", `/api/produtos/${id}`, d),
@@ -226,6 +290,20 @@ export const api = {
     http<Movimentacao[]>("GET", `/api/movimentacoes${qs(f)}`),
   registrar: (d: MovimentacaoForm) => http<Movimentacao>("POST", "/api/movimentacoes", d),
   desfazer: (id: number) => http<Movimentacao>("POST", `/api/movimentacoes/${id}/desfazer`),
+
+  proprios: (arquivados = false) => http<Proprio[]>("GET", `/api/proprios${qs({ arquivados: arquivados || undefined })}`),
+  proprio: (id: number) => http<ProprioDetalhe>("GET", `/api/proprios/${id}`),
+  criarProprio: (d: ProprioForm) => http<ProprioDetalhe>("POST", "/api/proprios", d),
+  atualizarProprio: (id: number, d: ProprioForm) => http<ProprioDetalhe>("PUT", `/api/proprios/${id}`, d),
+  removerProprio: (id: number) => http<void>("DELETE", `/api/proprios/${id}`),
+  restaurarProprio: (id: number) => http<ProprioDetalhe>("POST", `/api/proprios/${id}/restaurar`),
+  montar: (id: number, d: { quantidade: number; pessoa_id: number | null; status_inicial: "em_producao" | "pronto"; observacao: string | null }) =>
+    http<{ id: number; quantidade: number; unidades: Unidade[] }>("POST", `/api/proprios/${id}/montar`, d),
+  cancelarMontagem: (id: number) => http<void>("POST", `/api/proprios/montagens/${id}/cancelar`),
+  unidades: (f: { proprio_id?: number; status?: string; busca?: string } = {}) => http<Unidade[]>("GET", `/api/proprios/unidades${qs(f)}`),
+  atualizarUnidade: (id: number, d: { status: StatusUnidade; local: string | null; observacao: string | null }) =>
+    http<Unidade>("PATCH", `/api/proprios/unidades/${id}`, d),
+  eventosUnidade: (id: number) => http<EventoUnidade[]>("GET", `/api/proprios/unidades/${id}/eventos`),
 
   compras: () => http<ItemCompra[]>("GET", "/api/compras"),
   /** POST que devolve arquivo: baixa sem sair da página */

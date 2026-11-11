@@ -237,3 +237,101 @@ class ItemExportar(BaseModel):
 
 class ExportarComprasIn(BaseModel):
     itens: list[ItemExportar] = Field(min_length=1, max_length=500)
+
+
+# ---------- Produtos próprios ----------
+StatusUnidade = Literal["em_producao", "pronto", "em_campo", "manutencao", "desativado"]
+
+
+class ComponenteIn(BaseModel):
+    produto_id: int
+    quantidade: float = Field(gt=0)
+
+
+class ProprioIn(_Base):
+    nome: str = Field(min_length=1, max_length=120)
+    prefixo: str = Field(min_length=1, max_length=12, pattern=r"^[A-Z0-9]+$", description="Ex.: OLIE → OLIE-0001")
+    tipo: str | None = Field(default=None, max_length=60)
+    descricao: str | None = None
+    componentes: list[ComponenteIn] = Field(default_factory=list, max_length=200)
+
+    _limpa = field_validator("tipo", "descricao", mode="before")(_vazio_para_none)
+    _prefixo = field_validator("prefixo", mode="before")(
+        lambda v: "".join(ch for ch in v.upper() if ch.isalnum()) if isinstance(v, str) else v
+    )
+
+
+class ComponenteOut(BaseModel):
+    produto_id: int
+    produto_nome: str
+    produto_categoria: str | None
+    produto_unidade: str
+    produto_foto_url: str | None
+    produto_arquivado: bool
+    quantidade: float
+    em_estoque: float
+    da_para: int
+    falta_para_mais_um: float
+
+
+class ProprioOut(BaseModel):
+    id: int
+    nome: str
+    prefixo: str
+    tipo: str | None
+    descricao: str | None
+    arquivado: bool
+    capacidade: int | None
+    gargalo: str | None
+    por_status: dict[str, int]
+    total_unidades: int
+    criado_em: datetime
+
+
+class ProprioDetalhe(ProprioOut):
+    componentes: list[ComponenteOut]
+
+
+class MontarIn(_Base):
+    quantidade: int = Field(ge=1, le=500)
+    pessoa_id: int | None = None
+    status_inicial: Literal["em_producao", "pronto"] = "em_producao"
+    observacao: str | None = Field(default=None, max_length=255)
+
+    _limpa = field_validator("observacao", mode="before")(_vazio_para_none)
+
+
+class UnidadeOut(BaseModel):
+    id: int
+    proprio_id: int
+    proprio_nome: str
+    numero_serie: str
+    status: StatusUnidade
+    local: str | None
+    observacao: str | None
+    montagem_id: int | None
+    criado_em: datetime
+    atualizado_em: datetime
+
+
+class UnidadeUpdate(_Base):
+    status: StatusUnidade
+    local: str | None = Field(default=None, max_length=160)
+    observacao: str | None = Field(default=None, max_length=255)
+
+    _limpa = field_validator("local", "observacao", mode="before")(_vazio_para_none)
+
+
+class EventoOut(BaseModel):
+    id: int
+    status: StatusUnidade
+    local: str | None
+    observacao: str | None
+    registrado_por_nome: str | None
+    criado_em: datetime
+
+
+class MontagemOut(BaseModel):
+    id: int
+    quantidade: int
+    unidades: list[UnidadeOut]

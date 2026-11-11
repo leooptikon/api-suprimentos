@@ -73,6 +73,8 @@ def desfazer(mov_id: int, db: Session = Depends(get_db), usuario: models.Pessoa 
         raise HTTPException(404, "Movimentação não encontrada")
     if original.estorno_de_id is not None:
         raise HTTPException(409, "Isso já é um estorno e não pode ser desfeito")
+    if original.montagem_id is not None:
+        raise HTTPException(409, "Essa retirada faz parte de uma montagem; cancele a montagem em Produtos próprios")
     if original.tipo == "ajuste":
         raise HTTPException(422, "Correções de contagem não são desfeitas; faça uma nova contagem")
     if original.estornada:

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, String, Text, TypeDecorator, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, String, Text, TypeDecorator, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -130,6 +130,8 @@ class Movimentacao(Base):
     # "Desfazer" não apaga nada: cria o lançamento inverso e marca o original
     estorno_de_id: Mapped[int | None] = mapped_column(ForeignKey("movimentacoes.id"))
     estornada: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    # Retiradas feitas por uma montagem de produto próprio
+    montagem_id: Mapped[int | None] = mapped_column(ForeignKey("montagens.id"), index=True)
     criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora, index=True)
 
     produto: Mapped[Produto] = relationship(back_populates="movimentacoes")
@@ -137,3 +139,107 @@ class Movimentacao(Base):
     registrado_por: Mapped[Pessoa | None] = relationship(foreign_keys=[registrado_por_id])
 
     __table_args__ = (CheckConstraint("tipo IN ('entrada', 'retirada', 'ajuste')", name="ck_movimentacao_tipo"),)
+
+
+# ---------- Produtos próprios (o que a gente fabrica: Olie, sensores…) ----------
+STATUS_UNIDADE = ("em_producao", "pronto", "em_campo", "manutencao", "desativado")
+
+
+class ProdutoProprio(Base):
+    __tablename__ = "produtos_proprios"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nome: Mapped[str] = mapped_column(String(120), unique=True)
+    # Prefixo do número de série das unidades: OLIE → OLIE-0001
+    prefixo: Mapped[str] = mapped_column(String(12), unique=True)
+    tipo: Mapped[str | None] = mapped_column(String(60))
+    descricao: Mapped[str | None] = mapped_column(Text)
+    arquivado: Mapped[bool] = mapped_column(Boolean, default=False)
+    criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora)
+
+    componentes: Mapped[list["Componente"]] = relationship(
+        back_populates="proprio", cascade="all, delete-orphan", order_by="Componente.id"
+    )
+    unidades: Mapped[list["Unidade"]] = relationship(back_populates="proprio")
+
+
+class Componente(Base):
+    """Quanto de cada peça do estoque vai em UMA unidade do produto próprio."""
+
+    __tablename__ = "componentes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    proprio_id: Mapped[int] = mapped_column(ForeignKey("produtos_proprios.id", ondelete="CASCADE"))
+    produto_id: Mapped[int] = mapped_column(ForeignKey("produtos.id"))
+    quantidade: Mapped[float] = mapped_column(Float)
+
+    proprio: Mapped[ProdutoProprio] = relationship(back_populates="componentes")
+    produto: Mapped[Produto] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("proprio_id", "produto_id", name="uq_componente"),
+        CheckConstraint("quantidade > 0", name="ck_componente_quantidade"),
+    )
+
+
+class Montagem(Base):
+    """Um lote montado de uma vez: retira as peças e cria N unidades."""
+
+    __tablename__ = "montagens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    proprio_id: Mapped[int] = mapped_column(ForeignKey("produtos_proprios.id"), index=True)
+    quantidade: Mapped[int] = mapped_column(Integer)
+    pessoa_id: Mapped[int | None] = mapped_column(ForeignKey("pessoas.id"))
+    registrado_por_id: Mapped[int | None] = mapped_column(ForeignKey("pessoas.id"))
+    observacao: Mapped[str | None] = mapped_column(String(255))
+    cancelada: Mapped[bool] = mapped_column(Boolean, default=False)
+    criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora)
+
+    proprio: Mapped[ProdutoProprio] = relationship()
+    pessoa: Mapped[Pessoa | None] = relationship(foreign_keys=[pessoa_id])
+    movimentacoes: Mapped[list[Movimentacao]] = relationship()
+
+
+class Unidade(Base):
+    """Uma peça física montada (um Olie específico), com número de série e situação."""
+
+    __tablename__ = "unidades"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    proprio_id: Mapped[int] = mapped_column(ForeignKey("produtos_proprios.id"), index=True)
+    montagem_id: Mapped[int | None] = mapped_column(ForeignKey("montagens.id"))
+    sequencia: Mapped[int] = mapped_column(Integer)
+    numero_serie: Mapped[str] = mapped_column(String(24), unique=True)
+    status: Mapped[str] = mapped_column(String(16), index=True)
+    local: Mapped[str | None] = mapped_column(String(160))
+    observacao: Mapped[str | None] = mapped_column(Text)
+    criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora)
+    atualizado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora, onupdate=agora)
+
+    proprio: Mapped[ProdutoProprio] = relationship(back_populates="unidades")
+    eventos: Mapped[list["EventoUnidade"]] = relationship(
+        back_populates="unidade", cascade="all, delete-orphan", order_by="EventoUnidade.id.desc()"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("proprio_id", "sequencia", name="uq_unidade_sequencia"),
+        CheckConstraint(f"status IN {STATUS_UNIDADE}", name="ck_unidade_status"),
+    )
+
+
+class EventoUnidade(Base):
+    """Histórico: cada mudança de situação/local de uma unidade."""
+
+    __tablename__ = "eventos_unidade"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    unidade_id: Mapped[int] = mapped_column(ForeignKey("unidades.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String(16))
+    local: Mapped[str | None] = mapped_column(String(160))
+    observacao: Mapped[str | None] = mapped_column(String(255))
+    registrado_por_id: Mapped[int | None] = mapped_column(ForeignKey("pessoas.id"))
+    criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora)
+
+    unidade: Mapped[Unidade] = relationship(back_populates="eventos")
+    registrado_por: Mapped[Pessoa | None] = relationship()

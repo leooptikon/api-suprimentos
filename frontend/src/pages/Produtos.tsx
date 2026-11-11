@@ -10,7 +10,7 @@ import { CabecalhoPagina } from "../components/Layout";
 import { Botao, Card, cn, Esqueleto, Input, MedidorEstoque, Select, StatusBadge, Vazio } from "../components/ui";
 import { api, type StatusEstoque } from "../lib/api";
 import { EtiquetaCategoria, MiniaturaProduto } from "../lib/categorias";
-import { fmtMoeda, fmtNum } from "../lib/format";
+import { agruparLocais, fmtMoeda, fmtNum, SEM_LOCAL } from "../lib/format";
 
 const FILTROS: { valor: StatusEstoque | ""; rotulo: string; ponto?: string }[] = [
   { valor: "", rotulo: "Todos" },
@@ -28,6 +28,7 @@ export function Produtos() {
   const [busca, setBusca] = useState(params.get("busca") ?? "");
   const buscaAdiada = useDeferredValue(busca.trim());
   const categoria = params.get("categoria") ?? "";
+  const local = params.get("local") ?? "";
   const status = (params.get("status") ?? "") as StatusEstoque | "";
   const arquivados = params.get("arquivados") === "1";
 
@@ -38,9 +39,11 @@ export function Produtos() {
     setParams(p, { replace: true });
   };
 
-  const filtros = { busca: buscaAdiada, categoria, status, arquivados };
+  const filtros = { busca: buscaAdiada, categoria, local, status, arquivados };
   const produtos = useQuery({ queryKey: ["produtos", filtros], queryFn: () => api.produtos(filtros), placeholderData: (a) => a });
   const categorias = useQuery({ queryKey: ["categorias"], queryFn: api.categorias });
+  const locais = useQuery({ queryKey: ["locais"], queryFn: api.locais });
+  const gruposLocais = agruparLocais(locais.data ?? []);
 
   const restaurar = useMutation({
     mutationFn: api.restaurarProduto,
@@ -52,7 +55,7 @@ export function Produtos() {
   });
 
   const lista = produtos.data ?? [];
-  const filtrando = !!(buscaAdiada || categoria || status);
+  const filtrando = !!(buscaAdiada || categoria || local || status);
 
   return (
     <>
@@ -88,8 +91,8 @@ export function Produtos() {
       />
 
       <Card className="overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-line p-4 lg:flex-row lg:items-center">
-          <div className="relative flex-1">
+        <div className="flex flex-col gap-3 border-b border-line p-4 lg:flex-row lg:flex-wrap lg:items-center">
+          <div className="relative flex-1 lg:min-w-64">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-subtle" />
             <Input
               value={busca}
@@ -109,6 +112,26 @@ export function Produtos() {
                 {c}
               </option>
             ))}
+          </Select>
+          <Select value={local} onChange={(e) => setParam("local", e.target.value)} className="lg:w-56" aria-label="Local">
+            <option value="">Todos os locais</option>
+            <option value={SEM_LOCAL}>Sem localização</option>
+            {[...gruposLocais].map(([principal, itens]) =>
+              itens.length === 1 && itens[0] === principal ? (
+                <option key={principal} value={principal}>
+                  {principal}
+                </option>
+              ) : (
+                <optgroup key={principal} label={principal}>
+                  <option value={principal}>Tudo em {principal}</option>
+                  {itens.filter((l) => l !== principal).map((l) => (
+                    <option key={l} value={l}>
+                      {l}
+                    </option>
+                  ))}
+                </optgroup>
+              ),
+            )}
           </Select>
           {!arquivados && (
             <div role="radiogroup" aria-label="Situação do estoque" className="flex gap-1 overflow-x-auto rounded-lg border border-line bg-bg/50 p-1">
@@ -198,10 +221,17 @@ export function Produtos() {
                     </td>
                     <td className="hidden px-4 py-3 text-muted xl:table-cell">
                       {p.localizacao ? (
-                        <span className="flex items-center gap-1.5">
-                          <MapPin className="size-3.5 text-subtle" />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setParam("local", p.localizacao!);
+                          }}
+                          title="Filtrar por este local"
+                          className="flex items-center gap-1.5 rounded text-left whitespace-nowrap hover:text-primary"
+                        >
+                          <MapPin className="size-3.5 shrink-0 text-subtle" />
                           {p.localizacao}
-                        </span>
+                        </button>
                       ) : (
                         <span className="text-subtle">—</span>
                       )}

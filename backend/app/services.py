@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from . import models, schemas
@@ -89,9 +89,28 @@ def registrar_movimentacao(
     registrado_por: models.Pessoa | None = None,
     estorno_de: models.Movimentacao | None = None,
 ) -> models.Movimentacao:
-    """Altera o saldo de forma atômica e grava o registro na mesma transação.
+    """Aplica uma movimentação e confirma. Em caso de erro, nada é gravado."""
+    try:
+        mov = aplicar_movimentacao(db, dados, registrado_por, estorno_de)
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    db.refresh(mov)
+    return mov
+
+
+def aplicar_movimentacao(
+    db: Session,
+    dados: schemas.MovimentacaoIn,
+    registrado_por: models.Pessoa | None = None,
+    estorno_de: models.Movimentacao | None = None,
+    montagem_id: int | None = None,
+) -> models.Movimentacao:
+    """Altera o saldo de forma atômica, sem dar commit — quem chama decide (ex.: montagem com várias peças).
 
     O UPDATE condicional garante que duas retiradas simultâneas nunca deixem o saldo negativo.
+    Se lançar HTTPException, quem chama deve dar rollback.
     """
     produto = db.get(models.Produto, dados.produto_id)
     if not produto:
@@ -136,18 +155,14 @@ def registrar_movimentacao(
             .values(estornada=True)
         ).rowcount
         if not marcado:
-            db.rollback()
             raise HTTPException(409, "Essa movimentação já foi desfeita")
 
     novo_saldo = db.execute(stmt.returning(tabela.quantidade)).scalar_one_or_none()
     if novo_saldo is None:
-        db.rollback()
         if dados.tipo == "retirada":
-            db.refresh(produto)
-            prefixo = "Não dá para desfazer: " if estorno_de else ""
-            raise HTTPException(
-                409, f"{prefixo}saldo insuficiente, há {formatar(produto.quantidade)} {produto.unidade} em estoque"
-            )
+            saldo = db.scalar(select(tabela.quantidade).where(tabela.id == produto.id))
+            prefixo = "Não dá para desfazer: " if estorno_de else f"{produto.nome}: " if montagem_id else ""
+            raise HTTPException(409, f"{prefixo}saldo insuficiente, há {formatar(saldo)} {produto.unidade} em estoque")
         raise HTTPException(409, "O saldo mudou enquanto você editava. Atualize a página e tente novamente.")
 
     mov = models.Movimentacao(
@@ -159,10 +174,10 @@ def registrar_movimentacao(
         saldo_apos=novo_saldo,
         motivo=dados.motivo,
         estorno_de_id=estorno_de.id if estorno_de else None,
+        montagem_id=montagem_id,
     )
     db.add(mov)
-    db.commit()
-    db.refresh(mov)
+    db.flush()
     return mov
 
 

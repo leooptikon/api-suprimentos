@@ -190,7 +190,7 @@ export function Dashboard() {
             />
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-3">
+          <div className="grid gap-4 xl:grid-cols-3 [&>*]:min-w-0">
             <Card className="xl:col-span-2">
               <CardHeader
                 titulo="Movimentação nos últimos 14 dias"
@@ -284,7 +284,7 @@ export function Dashboard() {
             </Card>
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-3">
+          <div className="grid gap-4 xl:grid-cols-3 [&>*]:min-w-0">
             <Card className="xl:col-span-2">
               <CardHeader
                 titulo="Últimas movimentações"
