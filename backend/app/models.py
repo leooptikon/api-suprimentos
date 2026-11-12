@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, String, Text, TypeDecorator, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, Float, ForeignKey, Integer, String, Table, Text, TypeDecorator, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -59,11 +59,34 @@ class Fornecedor(Base):
     nome: Mapped[str] = mapped_column(String(120), unique=True)
     site: Mapped[str | None] = mapped_column(String(255))
     contato: Mapped[str | None] = mapped_column(String(160))
-    localizacao: Mapped[str | None] = mapped_column(String(120))  # opcional: cidade/UF, endereço da loja…
+    localizacao: Mapped[str | None] = mapped_column(String(120))  # cidade (ex.: Belo Horizonte/MG)
     observacoes: Mapped[str | None] = mapped_column(Text)
+    produto_fornecido: Mapped[str | None] = mapped_column(String(255))  # texto livre: "rodas, parafusos…"
+    prazo_producao: Mapped[str | None] = mapped_column(String(60))
+    # Histórico: já utilizado, em avaliação ou não homologado
+    situacao: Mapped[str] = mapped_column(String(20), default="utilizado")
+    responsavel_id: Mapped[int | None] = mapped_column(ForeignKey("pessoas.id", ondelete="SET NULL"))
     criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora)
+    atualizado_em: Mapped[datetime | None] = mapped_column(UTCDateTime, default=agora, onupdate=agora)
 
     produtos: Mapped[list["ProdutoFornecedor"]] = relationship(back_populates="fornecedor", cascade="all, delete-orphan")
+    responsavel: Mapped["Pessoa | None"] = relationship()
+    proprios: Mapped[list["ProdutoProprio"]] = relationship(secondary=lambda: fornecedor_proprio, order_by="ProdutoProprio.nome")
+
+    __table_args__ = (
+        CheckConstraint("situacao IN ('utilizado', 'avaliacao', 'nao_homologado')", name="ck_fornecedor_situacao"),
+    )
+
+
+SITUACAO_FORNECEDOR = {"utilizado": "Já utilizado", "avaliacao": "Em avaliação", "nao_homologado": "Não homologado"}
+
+# Produtos Optikon (próprios) relacionados a cada fornecedor
+fornecedor_proprio = Table(
+    "fornecedor_proprio",
+    Base.metadata,
+    Column("fornecedor_id", ForeignKey("fornecedores.id", ondelete="CASCADE"), primary_key=True),
+    Column("proprio_id", ForeignKey("produtos_proprios.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 class ProdutoFornecedor(Base):

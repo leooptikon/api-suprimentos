@@ -32,6 +32,15 @@ def _migrar():
             con.execute(text("ALTER TABLE movimentacoes ADD COLUMN estorno_de_id INTEGER REFERENCES movimentacoes(id)"))
         if "localizacao" not in fornecedor_cols:
             con.execute(text("ALTER TABLE fornecedores ADD COLUMN localizacao VARCHAR(120)"))
+        # Colunas do cadastro de fornecedores da Optikon (os já cadastrados contam como "já utilizado")
+        for col, tipo in [("produto_fornecido", "VARCHAR(255)"), ("prazo_producao", "VARCHAR(60)"),
+                          ("situacao", "VARCHAR(20) NOT NULL DEFAULT 'utilizado'"),
+                          ("responsavel_id", "INTEGER REFERENCES pessoas(id) ON DELETE SET NULL"),
+                          ("atualizado_em", "DATETIME")]:
+            if col not in fornecedor_cols:
+                con.execute(text(f"ALTER TABLE fornecedores ADD COLUMN {col} {tipo}"))
+                if col == "atualizado_em":
+                    con.execute(text("UPDATE fornecedores SET atualizado_em = criado_em"))
         for col, tipo in [("preco_atualizado_em", "DATETIME"), ("frete_gratis", "BOOLEAN"),
                           ("situacao_anuncio", "VARCHAR(24)"), ("erro_coleta", "VARCHAR(255)")]:
             if col not in vinculo_cols:

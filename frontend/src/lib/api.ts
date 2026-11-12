@@ -55,6 +55,8 @@ export interface ProdutoForm {
   pessoa_id?: number | null;
 }
 
+export type SituacaoFornecedor = "utilizado" | "avaliacao" | "nao_homologado";
+
 export interface Fornecedor {
   id: number;
   nome: string;
@@ -62,11 +64,33 @@ export interface Fornecedor {
   contato: string | null;
   localizacao: string | null;
   observacoes: string | null;
+  produto_fornecido: string | null;
+  prazo_producao: string | null;
+  situacao: SituacaoFornecedor;
+  responsavel_id: number | null;
+  responsavel_nome: string | null;
+  proprios_ids: number[];
+  proprios_nomes: string[];
+  proprios_sugeridos: { id: number; nome: string }[];
+  produtos_vinculados: string[];
   criado_em: string;
+  atualizado_em: string | null;
   total_produtos: number;
 }
 
-export type FornecedorForm = Pick<Fornecedor, "nome" | "site" | "contato" | "localizacao" | "observacoes">;
+export type FornecedorForm = Pick<
+  Fornecedor,
+  | "nome"
+  | "site"
+  | "contato"
+  | "localizacao"
+  | "observacoes"
+  | "produto_fornecido"
+  | "prazo_producao"
+  | "situacao"
+  | "responsavel_id"
+  | "proprios_ids"
+>;
 
 export type Papel = "admin" | "membro";
 
@@ -460,4 +484,5 @@ export const api = {
 
   exportarUrl: (tipo: "estoque" | "movimentacoes", f: { de?: string; ate?: string } = {}) =>
     `/api/exportar/${tipo}.xlsx${qs(f)}`,
+  exportarFornecedoresUrl: "/api/fornecedores/exportar.xlsx",
 };

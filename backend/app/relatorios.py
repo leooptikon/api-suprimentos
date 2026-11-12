@@ -62,3 +62,21 @@ def proprios(db: Session) -> Tabela:
         + ["Descrição"]
     )
     return colunas, linhas
+
+
+def fornecedores(db: Session) -> Tabela:
+    """Mesmas colunas do "Cadastro de Fornecedores" da Optikon (+ data da última atualização, site e observações)."""
+    from .planilhas import FUSO
+    from .routers.cadastros import listar
+
+    linhas = []
+    for f in listar(db):
+        produtos = f.produto_fornecido or ", ".join(f.produtos_vinculados) or None
+        atualizado = f.atualizado_em.astimezone(FUSO).strftime("%d/%m/%Y") if f.atualizado_em else None
+        linhas.append([f.nome, produtos, ", ".join(f.proprios_nomes) or None, f.contato, f.localizacao,
+                       f.prazo_producao, models.SITUACAO_FORNECEDOR[f.situacao], f.responsavel_nome, atualizado,
+                       f.site, f.observacoes])
+    colunas = ["Nome Empresarial", "Produto Fornecido", "Produto Optikon Relacionado", "Contato (telefone e e-mail)",
+               "Cidade", "Prazo de Produção", "Histórico", "Responsável OPTIKON", "Última atualização", "Site",
+               "Observações"]
+    return colunas, linhas

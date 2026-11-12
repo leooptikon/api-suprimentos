@@ -13,19 +13,40 @@ def _vazio_para_none(v):
 
 
 # ---------- Fornecedor ----------
+SituacaoFornecedor = Literal["utilizado", "avaliacao", "nao_homologado"]
+
+
+class ProprioResumo(BaseModel):
+    id: int
+    nome: str
+
+
 class FornecedorIn(_Base):
     nome: str = Field(min_length=1, max_length=120)
     site: str | None = Field(default=None, max_length=255)
     contato: str | None = Field(default=None, max_length=160)
-    localizacao: str | None = Field(default=None, max_length=120)
+    localizacao: str | None = Field(default=None, max_length=120, description="Cidade")
     observacoes: str | None = None
+    produto_fornecido: str | None = Field(default=None, max_length=255)
+    prazo_producao: str | None = Field(default=None, max_length=60)
+    situacao: SituacaoFornecedor = "utilizado"
+    responsavel_id: int | None = None
+    proprios_ids: list[int] = Field(default_factory=list, max_length=100, description="Produtos Optikon relacionados")
 
-    _limpa = field_validator("site", "contato", "localizacao", "observacoes", mode="before")(_vazio_para_none)
+    _limpa = field_validator(
+        "site", "contato", "localizacao", "observacoes", "produto_fornecido", "prazo_producao", mode="before"
+    )(_vazio_para_none)
 
 
 class FornecedorOut(FornecedorIn):
     id: int
     criado_em: datetime
+    atualizado_em: datetime | None = None
+    responsavel_nome: str | None = None
+    proprios_nomes: list[str] = []
+    # Produtos próprios que usam peças vinculadas a este fornecedor (sugestão para "Produto Optikon relacionado")
+    proprios_sugeridos: list[ProprioResumo] = []
+    produtos_vinculados: list[str] = []
     total_produtos: int = 0
 
 

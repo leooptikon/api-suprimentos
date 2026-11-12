@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from .. import auth, models, schemas
+from .. import auth, models, relatorios, schemas
 from ..auth import admin_requerido, usuario_atual
 from ..db import get_db
+from ..planilhas import download, planilha
 
 fornecedores = APIRouter(prefix="/api/fornecedores", tags=["Fornecedores"], dependencies=[Depends(usuario_atual)])
 pessoas = APIRouter(prefix="/api/pessoas", tags=["Pessoas"], dependencies=[Depends(usuario_atual)])
@@ -21,29 +22,83 @@ def _salvar(db: Session, msg_duplicado: str):
 
 
 # ---------- Fornecedores ----------
-def _fornecedor_out(f: models.Fornecedor, total: int) -> schemas.FornecedorOut:
-    return schemas.FornecedorOut(**schemas.FornecedorIn.model_validate(f).model_dump(), id=f.id,
-                                 criado_em=f.criado_em, total_produtos=total)
+def _query_fornecedores():
+    return select(models.Fornecedor).options(
+        selectinload(models.Fornecedor.responsavel),
+        selectinload(models.Fornecedor.proprios),
+        selectinload(models.Fornecedor.produtos).selectinload(models.ProdutoFornecedor.produto),
+    )
+
+
+def _sugeridos(db: Session) -> dict[int, list[schemas.ProprioResumo]]:
+    """Fornecedor → produtos próprios que usam alguma peça vinculada a ele."""
+    linhas = db.execute(
+        select(models.ProdutoFornecedor.fornecedor_id, models.ProdutoProprio.id, models.ProdutoProprio.nome)
+        .join(models.Componente, models.Componente.produto_id == models.ProdutoFornecedor.produto_id)
+        .join(models.ProdutoProprio, models.ProdutoProprio.id == models.Componente.proprio_id)
+        .where(models.ProdutoProprio.arquivado.is_(False))
+        .distinct()
+        .order_by(func.lower(models.ProdutoProprio.nome))
+    )
+    mapa: dict[int, list[schemas.ProprioResumo]] = {}
+    for fid, pid, nome in linhas:
+        mapa.setdefault(fid, []).append(schemas.ProprioResumo(id=pid, nome=nome))
+    return mapa
+
+
+def fornecedor_out(f: models.Fornecedor, sugeridos: list[schemas.ProprioResumo]) -> schemas.FornecedorOut:
+    ativos = sorted((v.produto.nome for v in f.produtos if not v.produto.arquivado), key=str.lower)
+    return schemas.FornecedorOut(
+        id=f.id, nome=f.nome, site=f.site, contato=f.contato, localizacao=f.localizacao, observacoes=f.observacoes,
+        produto_fornecido=f.produto_fornecido, prazo_producao=f.prazo_producao, situacao=f.situacao,
+        responsavel_id=f.responsavel_id, responsavel_nome=f.responsavel.nome if f.responsavel else None,
+        proprios_ids=[p.id for p in f.proprios], proprios_nomes=[p.nome for p in f.proprios],
+        proprios_sugeridos=sugeridos, produtos_vinculados=ativos, total_produtos=len(ativos),
+        criado_em=f.criado_em, atualizado_em=f.atualizado_em,
+    )
+
+
+def listar(db: Session) -> list[schemas.FornecedorOut]:
+    sugeridos = _sugeridos(db)
+    lista = db.scalars(_query_fornecedores().order_by(func.lower(models.Fornecedor.nome)))
+    return [fornecedor_out(f, sugeridos.get(f.id, [])) for f in lista]
+
+
+def _aplicar(db: Session, f: models.Fornecedor, dados: schemas.FornecedorIn):
+    if dados.responsavel_id is not None and not db.get(models.Pessoa, dados.responsavel_id):
+        raise HTTPException(404, "Responsável não encontrado")
+    proprios = list(db.scalars(select(models.ProdutoProprio).where(models.ProdutoProprio.id.in_(dados.proprios_ids))))
+    if len(proprios) != len(set(dados.proprios_ids)):
+        raise HTTPException(404, "Produto Optikon não encontrado")
+    for campo, valor in dados.model_dump(exclude={"proprios_ids"}).items():
+        setattr(f, campo, valor)
+    f.proprios = proprios
+    f.atualizado_em = models.agora()
+
+
+def _obter(db: Session, fornecedor_id: int) -> schemas.FornecedorOut:
+    f = db.scalar(_query_fornecedores().where(models.Fornecedor.id == fornecedor_id))
+    return fornecedor_out(f, _sugeridos(db).get(f.id, []))
 
 
 @fornecedores.get("", response_model=list[schemas.FornecedorOut])
 def listar_fornecedores(db: Session = Depends(get_db)):
-    total = (
-        select(func.count(models.ProdutoFornecedor.id))
-        .join(models.Produto)
-        .where(models.ProdutoFornecedor.fornecedor_id == models.Fornecedor.id, models.Produto.arquivado.is_(False))
-        .scalar_subquery()
-    )
-    linhas = db.execute(select(models.Fornecedor, total).order_by(func.lower(models.Fornecedor.nome)))
-    return [_fornecedor_out(f, n) for f, n in linhas]
+    return listar(db)
+
+
+@fornecedores.get("/exportar.xlsx", tags=["Exportação"])
+def exportar_fornecedores(db: Session = Depends(get_db)):
+    colunas, linhas = relatorios.fornecedores(db)
+    return download(planilha("Cadastro de Fornecedores", colunas, linhas), "fornecedores")
 
 
 @fornecedores.post("", response_model=schemas.FornecedorOut, status_code=201, dependencies=ADMIN)
 def criar_fornecedor(dados: schemas.FornecedorIn, db: Session = Depends(get_db)):
-    f = models.Fornecedor(**dados.model_dump())
+    f = models.Fornecedor()
+    _aplicar(db, f, dados)
     db.add(f)
     _salvar(db, "Já existe um fornecedor com esse nome")
-    return _fornecedor_out(f, 0)
+    return _obter(db, f.id)
 
 
 @fornecedores.put("/{fornecedor_id}", response_model=schemas.FornecedorOut, dependencies=ADMIN)
@@ -51,10 +106,9 @@ def atualizar_fornecedor(fornecedor_id: int, dados: schemas.FornecedorIn, db: Se
     f = db.get(models.Fornecedor, fornecedor_id)
     if not f:
         raise HTTPException(404, "Fornecedor não encontrado")
-    for campo, valor in dados.model_dump().items():
-        setattr(f, campo, valor)
+    _aplicar(db, f, dados)
     _salvar(db, "Já existe um fornecedor com esse nome")
-    return _fornecedor_out(f, len(f.produtos))
+    return _obter(db, f.id)
 
 
 @fornecedores.delete("/{fornecedor_id}", status_code=204, dependencies=ADMIN)

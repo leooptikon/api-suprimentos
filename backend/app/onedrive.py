@@ -443,7 +443,11 @@ def ler_projetos(db: Session) -> dict:
 
 # ---------- Envio da planilha ----------
 def _abas(db: Session) -> list[tuple[str, list[str], list[list]]]:
-    return [("Produtos", *relatorios.estoque(db)), ("Produtos próprios", *relatorios.proprios(db))]
+    return [
+        ("Produtos", *relatorios.estoque(db)),
+        ("Produtos próprios", *relatorios.proprios(db)),
+        ("Fornecedores", *relatorios.fornecedores(db)),
+    ]
 
 
 def _aba_sobre() -> tuple[str, list[str], list[list]]:
