@@ -1,11 +1,17 @@
 import clsx from "clsx";
-import { Loader2, X } from "lucide-react";
+import { Check, ChevronDown, Loader2, X } from "lucide-react";
 import {
+  Children,
   forwardRef,
+  isValidElement,
   useEffect,
   useId,
   useRef,
+  useState,
   type ButtonHTMLAttributes,
+  type ChangeEvent,
+  type KeyboardEvent,
+  type OptionHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
   type SelectHTMLAttributes,
@@ -74,19 +80,199 @@ export function Textarea({ className, ...rest }: TextareaHTMLAttributes<HTMLText
   return <textarea className={cn(CAMPO, "min-h-20 resize-y py-2", className)} {...rest} />;
 }
 
-export function Select({ className, children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
+type Opcao = { valor: string; rotulo: ReactNode; desativado: boolean };
+
+/**
+ * Lista suspensa no estilo do site (a nativa do navegador abre cinza e quadrada).
+ * Mesma forma de usar do <select>: <Select value onChange={(e) => e.target.value}><option …/></Select>.
+ * A lista abre como "popover" (camada do topo): fica por cima de modais e não é cortada por rolagem.
+ */
+export function Select({
+  className,
+  children,
+  value,
+  onChange,
+  disabled,
+  id,
+  "aria-label": ariaLabel,
+  title,
+}: SelectHTMLAttributes<HTMLSelectElement>) {
+  const opcoes: Opcao[] = Children.toArray(children).flatMap((c) =>
+    isValidElement<OptionHTMLAttributes<HTMLOptionElement>>(c) && c.type === "option"
+      ? [{ valor: String(c.props.value ?? ""), rotulo: c.props.children, desativado: !!c.props.disabled }]
+      : [],
+  );
+  const atual = String(value ?? "");
+  const selecionada = opcoes.find((o) => o.valor === atual);
+  const listaId = useId();
+  const botao = useRef<HTMLButtonElement>(null);
+  const lista = useRef<HTMLUListElement>(null);
+  const [aberto, setAberto] = useState(false);
+  const [ativo, setAtivo] = useState(-1);
+
+  const fechar = () => lista.current?.matches(":popover-open") && lista.current.hidePopover();
+
+  const escolher = (o: Opcao) => {
+    if (o.desativado) return;
+    fechar();
+    botao.current?.focus();
+    if (o.valor !== atual) onChange?.({ target: { value: o.valor }, currentTarget: { value: o.valor } } as ChangeEvent<HTMLSelectElement>);
+  };
+
+  // Cola a lista no campo (abaixo, ou acima se não couber)
+  const posicionar = () => {
+    const el = lista.current;
+    if (!el || !botao.current) return;
+    const r = botao.current.getBoundingClientRect();
+    const largura = Math.max(r.width, 176);
+    const abaixo = window.innerHeight - r.bottom;
+    const altura = Math.min(264, opcoes.length * 34 + 10);
+    el.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - largura - 8))}px`;
+    el.style.minWidth = `${largura}px`;
+    if (abaixo < altura + 8 && r.top > abaixo) {
+      el.style.top = "auto";
+      el.style.bottom = `${window.innerHeight - r.top + 4}px`;
+    } else {
+      el.style.bottom = "auto";
+      el.style.top = `${r.bottom + 4}px`;
+    }
+  };
+
+  useEffect(() => {
+    const el = lista.current;
+    if (!el) return;
+    const antes = (e: Event) => (e as ToggleEvent).newState === "open" && posicionar();
+    const alternou = (e: Event) => {
+      const abriu = (e as ToggleEvent).newState === "open";
+      setAberto(abriu);
+      if (abriu) setAtivo(Math.max(0, opcoes.findIndex((o) => o.valor === atual)));
+    };
+    el.addEventListener("beforetoggle", antes);
+    el.addEventListener("toggle", alternou);
+    return () => {
+      el.removeEventListener("beforetoggle", antes);
+      el.removeEventListener("toggle", alternou);
+    };
+  });
+
+  // Rolou a página/modal ou mudou o tamanho da janela: a lista acompanha o campo
+  useEffect(() => {
+    if (!aberto) return;
+    const aoRolar = (e: Event) => e.target !== lista.current && posicionar();
+    window.addEventListener("scroll", aoRolar, true);
+    window.addEventListener("resize", posicionar);
+    return () => {
+      window.removeEventListener("scroll", aoRolar, true);
+      window.removeEventListener("resize", posicionar);
+    };
+  });
+
+  useEffect(() => {
+    const el = lista.current;
+    const li = el?.querySelector<HTMLElement>(`[data-indice="${ativo}"]`);
+    if (!aberto || !el || !li) return;
+    if (li.offsetTop < el.scrollTop) el.scrollTop = li.offsetTop - 4;
+    else if (li.offsetTop + li.offsetHeight > el.scrollTop + el.clientHeight) el.scrollTop = li.offsetTop + li.offsetHeight - el.clientHeight + 4;
+  }, [aberto, ativo]);
+
+  const mover = (passo: number) => {
+    let i = ativo;
+    for (let n = 0; n < opcoes.length; n++) {
+      i = Math.min(opcoes.length - 1, Math.max(0, i + passo));
+      if (!opcoes[i]?.desativado) break;
+    }
+    setAtivo(i);
+  };
+
+  const teclas = (e: KeyboardEvent<HTMLButtonElement>) => {
+    if (!aberto) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        lista.current?.showPopover();
+      }
+      return;
+    }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      mover(e.key === "ArrowDown" ? 1 : -1);
+    } else if (e.key === "Home" || e.key === "End") {
+      e.preventDefault();
+      setAtivo(e.key === "Home" ? 0 : opcoes.length - 1);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (opcoes[ativo]) escolher(opcoes[ativo]);
+    } else if (e.key === "Tab") {
+      fechar();
+    } else if (e.key.length === 1) {
+      // Digitar uma letra pula para a primeira opção que começa com ela
+      const itens = lista.current?.querySelectorAll<HTMLElement>("[data-indice]") ?? [];
+      const letra = e.key.toLowerCase();
+      const achou = [...itens].findIndex((li, i) => i > ativo && li.textContent?.trim().toLowerCase().startsWith(letra));
+      const primeiro = [...itens].findIndex((li) => li.textContent?.trim().toLowerCase().startsWith(letra));
+      if (achou >= 0 || primeiro >= 0) setAtivo(achou >= 0 ? achou : primeiro);
+    }
+  };
+
   return (
-    <select
-      className={cn(
-        CAMPO,
-        "h-9 cursor-pointer appearance-none bg-[length:16px] bg-[right_0.6rem_center] bg-no-repeat pr-8",
-        "bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a96a8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")]",
-        className,
-      )}
-      {...rest}
-    >
-      {children}
-    </select>
+    <>
+      <button
+        ref={botao}
+        id={id}
+        type="button"
+        role="combobox"
+        aria-label={ariaLabel}
+        title={title}
+        aria-haspopup="listbox"
+        aria-expanded={aberto}
+        aria-controls={listaId}
+        aria-activedescendant={aberto && ativo >= 0 ? `${listaId}-${ativo}` : undefined}
+        disabled={disabled}
+        popoverTarget={listaId}
+        onKeyDown={teclas}
+        className={cn(
+          CAMPO,
+          "flex h-9 cursor-pointer items-center gap-2 text-left disabled:cursor-not-allowed",
+          aberto && "border-primary/60 ring-2 ring-primary/12",
+          className,
+        )}
+      >
+        <span className={cn("min-w-0 flex-1 truncate", !selecionada && "text-subtle")}>{selecionada?.rotulo ?? "Selecione…"}</span>
+        <ChevronDown className={cn("size-4 shrink-0 text-subtle transition-transform", aberto && "rotate-180")} />
+      </button>
+      <ul
+        ref={lista}
+        id={listaId}
+        role="listbox"
+        popover="auto"
+        className="fixed inset-auto m-0 max-h-[264px] max-w-[calc(100vw-16px)] overflow-y-auto rounded-xl border border-line-strong bg-surface p-1 text-sm text-fg shadow-[0_12px_32px_-12px_rgb(0_0_0/0.55)]"
+      >
+        {opcoes.map((o, i) => {
+          const marcada = o.valor === atual;
+          return (
+            <li
+              key={o.valor}
+              id={`${listaId}-${i}`}
+              data-indice={i}
+              role="option"
+              aria-selected={marcada}
+              aria-disabled={o.desativado || undefined}
+              onMouseEnter={() => setAtivo(i)}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => escolher(o)}
+              className={cn(
+                "flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5",
+                i === ativo && "bg-surface-2",
+                marcada ? "text-primary" : "text-fg",
+                o.desativado && "cursor-not-allowed opacity-50",
+              )}
+            >
+              <span className="min-w-0 flex-1 truncate">{o.rotulo}</span>
+              <Check className={cn("size-3.5 shrink-0", !marcada && "invisible")} />
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }
 
