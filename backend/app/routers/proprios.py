@@ -272,6 +272,18 @@ def criar(dados: schemas.ProprioIn, db: Session = Depends(get_db)):
     return _out(_carregar(db, proprio.id), _contagem(db, [proprio.id])[proprio.id], detalhe=True)
 
 
+@router.get("/tipos", response_model=list[str])
+def tipos(db: Session = Depends(get_db)):
+    """Tipos já usados nos produtos próprios (sugestões do campo "Tipo" no cadastro)."""
+    stmt = (
+        select(models.ProdutoProprio.tipo)
+        .where(models.ProdutoProprio.tipo.is_not(None))
+        .distinct()
+        .order_by(func.lower(models.ProdutoProprio.tipo))
+    )
+    return list(db.scalars(stmt))
+
+
 @router.get("/{proprio_id}", response_model=schemas.ProprioDetalhe)
 def obter(proprio_id: int, db: Session = Depends(get_db)):
     return _out(_carregar(db, proprio_id), _contagem(db, [proprio_id])[proprio_id], detalhe=True)

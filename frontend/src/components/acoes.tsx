@@ -480,7 +480,7 @@ function ProdutoModal({ produto, aoFechar }: { produto?: Produto; aoFechar: () =
         <Campo rotulo="Categoria" className="sm:col-span-2">
           {(id) => (
             <>
-              <Input id={id} list="lista-categorias" value={f.categoria ?? ""} onChange={(e) => set("categoria", e.target.value)} placeholder="Ex.: Energia" maxLength={80} />
+              <Input id={id} list="lista-categorias" autoComplete="off" value={f.categoria ?? ""} onChange={(e) => set("categoria", e.target.value)} placeholder="Ex.: Energia" maxLength={80} />
               <datalist id="lista-categorias">
                 {categorias.data?.map((c) => <option key={c} value={c} />)}
               </datalist>
@@ -519,7 +519,7 @@ function ProdutoModal({ produto, aoFechar }: { produto?: Produto; aoFechar: () =
         <Campo rotulo="Localização" className="sm:col-span-3">
           {(id) => (
             <>
-              <Input id={id} list="lista-locais" value={f.localizacao ?? ""} onChange={(e) => set("localizacao", e.target.value)} placeholder="Ex.: Armário A" maxLength={120} />
+              <Input id={id} list="lista-locais" autoComplete="off" value={f.localizacao ?? ""} onChange={(e) => set("localizacao", e.target.value)} placeholder="Ex.: Armário A" maxLength={120} />
               <datalist id="lista-locais">
                 {locais.data?.map((l) => <option key={l} value={l} />)}
               </datalist>

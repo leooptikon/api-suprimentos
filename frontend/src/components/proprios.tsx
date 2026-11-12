@@ -31,6 +31,8 @@ interface Linha {
 export function ProprioModal({ proprio, aoFechar }: { proprio?: ProprioDetalhe; aoFechar: () => void }) {
   const invalidar = useInvalidar();
   const produtos = useQuery({ queryKey: ["produtos", {}], queryFn: () => api.produtos() });
+  // Sugestões do "Tipo": os tipos que vocês já usaram nos produtos próprios
+  const tipos = useQuery({ queryKey: ["tipos-proprios"], queryFn: api.tiposProprios });
   const [nome, setNome] = useState(proprio?.nome ?? "");
   const [prefixo, setPrefixo] = useState(proprio?.prefixo ?? "");
   const [prefixoManual, setPrefixoManual] = useState(!!proprio);
@@ -144,12 +146,18 @@ export function ProprioModal({ proprio, aoFechar }: { proprio?: ProprioDetalhe; 
           <Campo rotulo="Tipo" className="sm:col-span-2">
             {(id) => (
               <>
-                <Input id={id} list="tipos-proprio" value={tipo} onChange={(e) => setTipo(e.target.value)} placeholder="Ex.: Robô, Sensor" maxLength={60} />
+                {/* autoComplete off: sem o histórico do navegador misturado às sugestões */}
+                <Input
+                  id={id}
+                  list="tipos-proprio"
+                  autoComplete="off"
+                  value={tipo}
+                  onChange={(e) => setTipo(e.target.value)}
+                  placeholder="Ex.: Robô, Sensor"
+                  maxLength={60}
+                />
                 <datalist id="tipos-proprio">
-                  <option value="Robô" />
-                  <option value="Sensor" />
-                  <option value="Câmera" />
-                  <option value="Placa" />
+                  {tipos.data?.map((t) => <option key={t} value={t} />)}
                 </datalist>
               </>
             )}

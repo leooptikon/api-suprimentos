@@ -388,6 +388,7 @@ export const api = {
 
   proprios: (arquivados = false) => http<Proprio[]>("GET", `/api/proprios${qs({ arquivados: arquivados || undefined })}`),
   proprio: (id: number) => http<ProprioDetalhe>("GET", `/api/proprios/${id}`),
+  tiposProprios: () => http<string[]>("GET", "/api/proprios/tipos"),
   criarProprio: (d: ProprioForm) => http<ProprioDetalhe>("POST", "/api/proprios", d),
   atualizarProprio: (id: number, d: ProprioForm) => http<ProprioDetalhe>("PUT", `/api/proprios/${id}`, d),
   removerProprio: (id: number) => http<void>("DELETE", `/api/proprios/${id}`),
