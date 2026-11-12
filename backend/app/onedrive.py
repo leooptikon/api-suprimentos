@@ -284,9 +284,24 @@ def _candidatos(link: str) -> list[str]:
     (…/onedrive.aspx?id=/personal/…/Documents/Pasta) vira o endereço “real” da pasta."""
     candidatos = [link]
     p = urllib.parse.urlparse(link)
-    caminho = (urllib.parse.parse_qs(p.query).get("id") or [""])[0]
-    if caminho.startswith("/"):
-        candidatos.insert(0, f"{p.scheme}://{p.netloc}{urllib.parse.quote(caminho)}")
+    params = urllib.parse.parse_qs(p.query)
+    for nome in ("id", "RootFolder"):
+        caminho = (params.get(nome) or [""])[0]
+        if caminho.startswith("/"):
+            candidatos.insert(0, f"{p.scheme}://{p.netloc}{urllib.parse.quote(caminho)}")
+    # Atalho para pasta de outra pessoa (…/my?remoteItem={"mp":{…},"rsi":{…}}): "rsi" é a pasta de verdade
+    remoto = (params.get("remoteItem") or [""])[0]
+    if remoto:
+        try:
+            dados = json.loads(remoto)
+        except ValueError:
+            dados = {}
+        for chave in ("mp", "rsi"):  # inserido no início: rsi fica primeiro
+            d = dados.get(chave) or {}
+            web, pasta = d.get("webAbsoluteUrl"), d.get("rootFolder")
+            if web and pasta and pasta.startswith("/"):
+                u = urllib.parse.urlparse(web)
+                candidatos.insert(0, f"{u.scheme}://{u.netloc}{urllib.parse.quote(pasta)}")
     return candidatos
 
 
@@ -316,6 +331,8 @@ def _resolver_link(token: str, link: str) -> tuple[dict, str]:
                 "da pasta e confira se essa conta tem acesso a ela."
             )
         raise ErroOneDrive(_explicar_graph(ultimo_erro)) if ultimo_erro else ErroOneDrive("Link inválido")
+    if "remoteItem" in item:  # atalho "Adicionar ao meu OneDrive": usa a pasta original
+        item = {**item["remoteItem"], "name": item["remoteItem"].get("name") or item.get("name")}
     drive_id = (item.get("parentReference") or {}).get("driveId")
     if not drive_id:
         raise ErroOneDrive("Não consegui identificar o OneDrive dessa pasta. Tente o link de uma pasta dentro dele.")
