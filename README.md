@@ -40,7 +40,29 @@ cd backend
 O banco fica em `backend/data/estoque.db` e as fotos em `backend/data/fotos/` — para fazer backup, basta copiar a pasta `backend/data`.
 Para começar do zero, apague esse arquivo com a API parada.
 
-## Rodando em produção (um único processo)
+## Rodando no servidor do escritório (Docker)
+
+O servidor é o notebook Linux do escritório. O site roda num container, igual à aplicação da Optikon:
+
+```bash
+docker compose up -d --build
+```
+
+- Acesso: `http://<ip-do-servidor>:8010` (porta publicada pelo Docker).
+- O banco e as fotos ficam em `backend/data` no servidor (volume), então atualizar ou recriar o container não apaga nada.
+- As chaves (Mercado Livre e Microsoft) vêm de `backend/.env`, que fica só no servidor (fora do git e da imagem).
+- `restart: always`: volta sozinho se cair e quando o notebook reiniciar.
+- Roda com **1 worker** (os agendadores do Mercado Livre e do OneDrive ficam dentro do processo).
+
+Para atualizar depois de um `git pull`:
+
+```bash
+docker compose up -d --build
+```
+
+Logs: `docker compose logs -f` · Parar: `docker compose down` (o banco continua em `backend/data`).
+
+## Rodando em produção sem Docker (um único processo)
 
 ```bash
 cd frontend && npm run build

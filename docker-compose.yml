@@ -1,0 +1,21 @@
+# Sobe o Suprimentos (Trace) no servidor do escritório:
+#   docker compose up -d --build
+# Acesso: http://<ip-do-servidor>:8010
+services:
+  suprimentos:
+    build: .
+    image: suprimentos:latest
+    container_name: suprimentos_app
+    restart: always
+    ports:
+      - "8010:8010"
+    # Chaves do Mercado Livre e da Microsoft (o arquivo fica só no servidor, fora do git e da imagem)
+    env_file:
+      - ./backend/.env
+    environment:
+      TZ: America/Sao_Paulo
+    # Roda com o mesmo usuário do servidor, para o banco continuar sendo dele (e não do root)
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      # Banco real (estoque.db) e fotos: ficam no servidor e sobrevivem a atualizações do container
+      - ./backend/data:/app/backend/data
