@@ -61,7 +61,7 @@ export const Botao = forwardRef<HTMLButtonElement, BotaoProps>(function Botao(
 
 /* ---------- Campos ---------- */
 const CAMPO =
-  "w-full rounded-lg border border-line bg-bg/60 px-3 text-sm text-fg placeholder:text-subtle transition-colors hover:border-line-strong focus:border-primary focus:outline-none focus:ring-3 focus:ring-primary-soft disabled:opacity-60";
+  "w-full rounded-xl border border-line bg-bg/60 px-3 text-sm text-fg placeholder:text-subtle transition-[border-color,box-shadow] hover:border-line-strong focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/12 disabled:opacity-60";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input(
   { className, ...rest },
