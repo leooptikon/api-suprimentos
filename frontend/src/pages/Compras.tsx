@@ -1,12 +1,13 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CheckSquare, ClipboardCopy, Download, ExternalLink, Minus, PackageCheck, Plus, ShoppingCart, Square } from "lucide-react";
+import { AlertTriangle, CheckSquare, ClipboardCopy, Download, ExternalLink, MapPin, Minus, PackageCheck, Plus, ShoppingCart, Square } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { BuscaProduto, useInvalidar } from "../components/acoes";
 import { useAuth } from "../components/auth";
 import { CabecalhoPagina } from "../components/Layout";
-import { Botao, Card, cn, Esqueleto, Input, Select, StatusBadge, Vazio } from "../components/ui";
-import { api, type ItemCompra } from "../lib/api";
+import { Badge, Botao, Campo, Card, cn, Esqueleto, Input, Modal, Select, StatusBadge, Vazio } from "../components/ui";
+import { api, type ItemCompra, type Produto } from "../lib/api";
 import { EtiquetaCategoria, MiniaturaProduto } from "../lib/categorias";
 import { copiar } from "../lib/copiar";
 import { fmtMoeda, fmtNum } from "../lib/format";
@@ -25,6 +26,7 @@ const lerQtd = (v: string) => {
 export function Compras() {
   const { admin } = useAuth();
   const lista = useQuery({ queryKey: ["compras"], queryFn: api.compras });
+  const invalidar = useInvalidar();
   // Ajustes de quem está montando a lista; itens novos entram com a sugestão do sistema
   const [ajustes, setAjustes] = useState<Record<number, Escolha>>({});
 
@@ -44,6 +46,23 @@ export function Compras() {
   const total = marcadas.reduce((s, l) => s + (l.subtotal ?? 0), 0);
   const semPreco = marcadas.filter((l) => l.subtotal === null).length;
 
+  const [adicionar, setAdicionar] = useState<{ item?: ItemCompra } | null>(null);
+  // Mudou o que foi adicionado à mão: descarta o ajuste local daquele produto para valer a nova sugestão
+  const esquecerAjuste = (produtoId: number) =>
+    setAjustes((a) => {
+      const { [produtoId]: _, ...resto } = a;
+      return resto;
+    });
+  const remover = useMutation({
+    mutationFn: ({ id }: { id: number; produtoId: number }) => api.removerCompra(id),
+    onSuccess: (_, { produtoId }) => {
+      toast.success("Tirado da lista de compras");
+      esquecerAjuste(produtoId);
+      invalidar();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const exportar = useMutation({
     mutationFn: () => api.exportarCompras(marcadas.map((l) => ({ produto_id: l.item.produto.id, quantidade: l.qtd, fornecedor_id: l.opcao?.fornecedor_id ?? null }))),
     onError: (e: Error) => toast.error(e.message),
@@ -54,7 +73,9 @@ export function Compras() {
     const corpo = marcadas.map((l) => {
       const p = l.item.produto;
       let linha = `• ${p.nome} — ${fmtNum(l.qtd)} ${p.unidade}`;
-      if (l.opcao) linha += ` — ${l.opcao.fornecedor_nome}${l.opcao.preco != null ? ` ${fmtMoeda(l.opcao.preco)} (${fmtMoeda(l.subtotal!)})` : ""}`;
+      if (l.item.manual?.motivo) linha += ` [${l.item.manual.motivo}]`;
+      if (l.opcao)
+        linha += ` — ${l.opcao.fornecedor_nome}${l.opcao.fornecedor_localizacao ? ` (${l.opcao.fornecedor_localizacao})` : ""}${l.opcao.preco != null ? ` ${fmtMoeda(l.opcao.preco)} (${fmtMoeda(l.subtotal!)})` : ""}`;
       if (l.opcao?.url) linha += `\n  ${l.opcao.url}`;
       return linha;
     });
@@ -73,9 +94,13 @@ export function Compras() {
     <>
       <CabecalhoPagina
         titulo="Lista de compras"
-        descricao="Itens esgotados ou no estoque mínimo. A sugestão completa até o dobro do mínimo — ajuste como quiser."
+        descricao="Itens esgotados ou no estoque mínimo, mais o que vocês adicionarem. A sugestão completa até o dobro do mínimo — ajuste como quiser."
         acoes={
-          itens.length > 0 && (
+          <>
+            <Botao onClick={() => setAdicionar({})}>
+              <Plus /> Adicionar item
+            </Botao>
+            {itens.length > 0 && (
             <>
               <Botao onClick={copiarLista} disabled={marcadas.length === 0}>
                 <ClipboardCopy /> Copiar lista
@@ -84,7 +109,8 @@ export function Compras() {
                 <Download /> Exportar Excel
               </Botao>
             </>
-          )
+            )}
+          </>
         }
       />
 
@@ -95,7 +121,16 @@ export function Compras() {
         </div>
       ) : itens.length === 0 ? (
         <Card>
-          <Vazio icone={<PackageCheck />} titulo="Nada para comprar agora" texto="Todos os itens estão acima do estoque mínimo." />
+          <Vazio
+            icone={<PackageCheck />}
+            titulo="Nada para comprar agora"
+            texto="Todos os itens estão acima do estoque mínimo. Vai precisar de mais para um projeto? Adicione à lista."
+            acao={
+              <Botao variante="primary" onClick={() => setAdicionar({})}>
+                <Plus /> Adicionar item
+              </Botao>
+            }
+          />
         </Card>
       ) : (
         <>
@@ -155,6 +190,28 @@ export function Compras() {
                           </span>
                           <EtiquetaCategoria categoria={p.categoria} className="max-sm:hidden" />
                         </div>
+                        {i.manual && (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                            <Badge tom="primary">
+                              <Plus className="size-3" /> Adicionado: {fmtNum(i.manual.quantidade)} {p.unidade}
+                            </Badge>
+                            {i.manual.motivo && (
+                              <span className="max-w-[260px] truncate text-muted" title={i.manual.motivo}>
+                                {i.manual.motivo}
+                              </span>
+                            )}
+                            <button onClick={() => setAdicionar({ item: i })} className="text-primary hover:underline">
+                              editar
+                            </button>
+                            <button
+                              onClick={() => remover.mutate({ id: i.manual!.id, produtoId: p.id })}
+                              className="text-subtle hover:text-danger"
+                              disabled={remover.isPending}
+                            >
+                              tirar da lista
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -196,7 +253,14 @@ export function Compras() {
                             </option>
                           ))}
                         </Select>
-                      ) : (
+                      ) : null}
+                      {opcao?.fornecedor_localizacao && (
+                        <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted" title="Localização do fornecedor">
+                          <MapPin className="size-3.5 shrink-0 text-subtle" />
+                          <span className="truncate">{opcao.fornecedor_localizacao}</span>
+                        </p>
+                      )}
+                      {i.opcoes.length === 0 && (
                         <p className="flex items-center gap-1.5 text-sm text-warn">
                           <AlertTriangle className="size-4" /> Sem fornecedor
                           {admin && (
@@ -237,6 +301,166 @@ export function Compras() {
           </Card>
         </>
       )}
+      {adicionar && (
+        <AdicionarCompraModal
+          inicial={adicionar.item}
+          itens={itens}
+          aoFechar={() => setAdicionar(null)}
+          aoSalvar={(produtoId) => {
+            esquecerAjuste(produtoId);
+            setAdicionar(null);
+          }}
+        />
+      )}
     </>
+  );
+}
+
+/** Adicionar (ou editar) uma compra à mão: produto, quantidade e motivo (ex.: o projeto que precisa). */
+function AdicionarCompraModal({
+  inicial,
+  itens,
+  aoFechar,
+  aoSalvar,
+}: {
+  inicial?: ItemCompra;
+  itens: ItemCompra[];
+  aoFechar: () => void;
+  aoSalvar: (produtoId: number) => void;
+}) {
+  const invalidar = useInvalidar();
+  const [produto, setProduto] = useState<Produto | null>(inicial?.produto ?? null);
+  const [qtd, setQtd] = useState(inicial?.manual ? String(inicial.manual.quantidade).replace(".", ",") : "1");
+  const [motivo, setMotivo] = useState(inicial?.manual?.motivo ?? "");
+  const projetos = useQuery({ queryKey: ["projetos"], queryFn: api.projetos });
+  const naLista = produto ? itens.find((i) => i.produto.id === produto.id) : undefined;
+  const n = lerQtd(qtd);
+
+  function escolher(p: Produto) {
+    setProduto(p);
+    // Já tinha sido adicionado: traz o que estava para editar
+    const existente = itens.find((i) => i.produto.id === p.id)?.manual;
+    if (existente) {
+      setQtd(String(existente.quantidade).replace(".", ","));
+      setMotivo(existente.motivo ?? "");
+    }
+  }
+
+  const salvar = useMutation({
+    mutationFn: () => api.adicionarCompra({ produto_id: produto!.id, quantidade: n, motivo: motivo.trim() || null }),
+    onSuccess: () => {
+      toast.success(inicial?.manual || naLista?.manual ? "Item da lista atualizado" : "Adicionado à lista de compras", {
+        description: `${produto!.nome} · ${fmtNum(n)} ${produto!.unidade}`,
+      });
+      invalidar();
+      aoSalvar(produto!.id);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Modal
+      aberto
+      aoFechar={aoFechar}
+      titulo={inicial?.manual ? "Editar item da lista" : "Adicionar à lista de compras"}
+      descricao="Para quando vai precisar de mais, mesmo com estoque (ex.: um projeto novo). Sai da lista sozinho quando a entrada da compra for registrada."
+      icone={<ShoppingCart />}
+      rodape={
+        <>
+          <Botao variante="ghost" onClick={aoFechar}>
+            Cancelar
+          </Botao>
+          <Botao variante="primary" type="submit" form="form-compra" disabled={!produto || n <= 0} carregando={salvar.isPending}>
+            {inicial?.manual || naLista?.manual ? "Salvar" : "Adicionar"}
+          </Botao>
+        </>
+      }
+    >
+      <form
+        id="form-compra"
+        className="flex flex-col gap-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (produto && n > 0) salvar.mutate();
+        }}
+      >
+        {!produto ? (
+          <BuscaProduto aoEscolher={escolher} />
+        ) : (
+          <div className="flex items-center gap-3 rounded-xl border border-line bg-bg/40 px-4 py-3">
+            <MiniaturaProduto produto={produto} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{produto.nome}</p>
+              <p className="tabular text-xs text-muted">
+                tem {fmtNum(produto.quantidade)} · mín {fmtNum(produto.estoque_minimo)} {produto.unidade}
+                {!inicial && (
+                  <>
+                    {" · "}
+                    <button type="button" onClick={() => setProduto(null)} className="text-primary hover:underline">
+                      trocar
+                    </button>
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {produto && (
+          <>
+            <Campo
+              rotulo="Quantidade a comprar"
+              obrigatorio
+              dica={
+                naLista?.automatico
+                  ? `Ele já está no mínimo: a reposição automática continua somando a essa quantidade na lista.`
+                  : undefined
+              }
+            >
+              {(id) => (
+                <div className="flex items-center gap-2">
+                  <div className="flex">
+                    <Botao type="button" tamanho="icon" className="h-9 w-9 rounded-r-none" onClick={() => setQtd(String(Math.max(1, n - 1)))} aria-label="Diminuir">
+                      <Minus />
+                    </Botao>
+                    <Input
+                      id={id}
+                      value={qtd}
+                      onChange={(ev) => setQtd(ev.target.value)}
+                      onFocus={(ev) => ev.target.select()}
+                      inputMode="decimal"
+                      className="tabular w-20! rounded-none border-x-0 text-center"
+                      autoFocus
+                    />
+                    <Botao type="button" tamanho="icon" className="h-9 w-9 rounded-l-none" onClick={() => setQtd(String(n + 1))} aria-label="Aumentar">
+                      <Plus />
+                    </Botao>
+                  </div>
+                  <span className="text-sm text-subtle">{produto.unidade}</span>
+                </div>
+              )}
+            </Campo>
+            <Campo rotulo="Motivo" dica="Opcional. Ex.: o projeto que vai precisar.">
+              {(id) => (
+                <>
+                  <Input
+                    id={id}
+                    list="motivos-compra"
+                    autoComplete="off"
+                    value={motivo}
+                    onChange={(ev) => setMotivo(ev.target.value)}
+                    placeholder="Ex.: 21.40 - TM ENGENHARIA"
+                    maxLength={160}
+                  />
+                  <datalist id="motivos-compra">
+                    {projetos.data?.filter((p) => p.no_onedrive).map((p) => <option key={p.id} value={p.nome} />)}
+                  </datalist>
+                </>
+              )}
+            </Campo>
+          </>
+        )}
+      </form>
+    </Modal>
   );
 }

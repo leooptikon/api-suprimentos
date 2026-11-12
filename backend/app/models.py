@@ -359,3 +359,22 @@ class ExecucaoColeta(Base):
     atualizados: Mapped[int] = mapped_column(Integer, default=0)
     falhas: Mapped[int] = mapped_column(Integer, default=0)
     mensagem: Mapped[str | None] = mapped_column(String(255))
+
+
+class ItemCompraManual(Base):
+    """Compra pedida à mão (ex.: projeto novo), mesmo com estoque suficiente. Fica na lista até alguém tirar."""
+
+    __tablename__ = "itens_compra_manuais"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    produto_id: Mapped[int] = mapped_column(ForeignKey("produtos.id", ondelete="CASCADE"), unique=True)
+    quantidade: Mapped[float] = mapped_column(Float)
+    motivo: Mapped[str | None] = mapped_column(String(160))
+    criado_por_id: Mapped[int | None] = mapped_column(ForeignKey("pessoas.id"))
+    criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora)
+    atualizado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora, onupdate=agora)
+
+    produto: Mapped[Produto] = relationship()
+    criado_por: Mapped[Pessoa | None] = relationship()
+
+    __table_args__ = (CheckConstraint("quantidade > 0", name="ck_item_compra_quantidade"),)

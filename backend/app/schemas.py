@@ -222,15 +222,35 @@ class DashboardOut(BaseModel):
 class OpcaoCompra(BaseModel):
     fornecedor_id: int
     fornecedor_nome: str
+    fornecedor_localizacao: str | None = None
     preco: float | None
     url: str | None
     preferido: bool
 
 
+class CompraManualOut(BaseModel):
+    id: int
+    quantidade: float
+    motivo: str | None
+    criado_por_nome: str | None
+    atualizado_em: datetime
+
+
+class CompraManualIn(_Base):
+    produto_id: int
+    quantidade: float = Field(gt=0)
+    motivo: str | None = Field(default=None, max_length=160)
+
+    _limpa = field_validator("motivo", mode="before")(_vazio_para_none)
+
+
 class ItemCompra(BaseModel):
     produto: ProdutoOut
+    # sugestão = reposição automática (se estiver no mínimo) + quantidade adicionada à mão
     sugestao: float
     meta: float
+    automatico: bool = True  # está na lista por estar esgotado/no mínimo
+    manual: CompraManualOut | None = None  # alguém adicionou à mão
     opcoes: list[OpcaoCompra]
     fornecedor_sugerido_id: int | None
 

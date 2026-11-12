@@ -133,15 +133,29 @@ export interface Dashboard {
 export interface OpcaoCompra {
   fornecedor_id: number;
   fornecedor_nome: string;
+  fornecedor_localizacao: string | null;
   preco: number | null;
   url: string | null;
   preferido: boolean;
 }
 
+export interface CompraManual {
+  id: number;
+  quantidade: number;
+  motivo: string | null;
+  criado_por_nome: string | null;
+  atualizado_em: string;
+}
+
 export interface ItemCompra {
   produto: Produto;
+  /** reposição automática (se estiver no mínimo) + quantidade adicionada à mão */
   sugestao: number;
   meta: number;
+  /** está na lista por estar esgotado/no mínimo */
+  automatico: boolean;
+  /** alguém adicionou à mão (ex.: projeto novo) */
+  manual: CompraManual | null;
   opcoes: OpcaoCompra[];
   fornecedor_sugerido_id: number | null;
 }
@@ -423,6 +437,9 @@ export const api = {
   desconectarOneDrive: () => http<void>("POST", "/api/onedrive/desconectar"),
 
   compras: () => http<ItemCompra[]>("GET", "/api/compras"),
+  adicionarCompra: (d: { produto_id: number; quantidade: number; motivo: string | null }) =>
+    http<CompraManual>("POST", "/api/compras/manuais", d),
+  removerCompra: (id: number) => http<void>("DELETE", `/api/compras/manuais/${id}`),
   /** POST que devolve arquivo: baixa sem sair da página */
   exportarCompras: async (itens: { produto_id: number; quantidade: number; fornecedor_id: number | null }[]) => {
     const resp = await fetch("/api/compras/exportar.xlsx", {

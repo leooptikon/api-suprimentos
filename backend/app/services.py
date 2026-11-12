@@ -182,8 +182,21 @@ def aplicar_movimentacao(
         montagem_id=montagem_id,
     )
     db.add(mov)
+    if dados.tipo == "entrada" and estorno_de is None and montagem_id is None:
+        _abater_compra_manual(db, produto.id, dados.quantidade)
     db.flush()
     return mov
+
+
+def _abater_compra_manual(db: Session, produto_id: int, recebido: float) -> None:
+    """A compra chegou: desconta do item adicionado à mão na lista de compras e tira da lista quando completar."""
+    item = db.scalar(select(models.ItemCompraManual).where(models.ItemCompraManual.produto_id == produto_id))
+    if item is None:
+        return
+    if item.quantidade <= recebido:
+        db.delete(item)
+    else:
+        item.quantidade -= recebido
 
 
 def formatar(n: float) -> str:

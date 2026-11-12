@@ -99,7 +99,7 @@ function normalizar(s: string | null) {
 }
 
 /** Busca de produto com teclado (setas + Enter), mostrando saldo e situação. */
-function BuscaProduto({ aoEscolher }: { aoEscolher: (p: Produto) => void }) {
+export function BuscaProduto({ aoEscolher }: { aoEscolher: (p: Produto) => void }) {
   const produtos = useQuery({ queryKey: ["produtos", {}], queryFn: () => api.produtos() });
   const [termo, setTermo] = useState("");
   const [sel, setSel] = useState(0);
