@@ -60,12 +60,13 @@ export interface Fornecedor {
   nome: string;
   site: string | null;
   contato: string | null;
+  localizacao: string | null;
   observacoes: string | null;
   criado_em: string;
   total_produtos: number;
 }
 
-export type FornecedorForm = Pick<Fornecedor, "nome" | "site" | "contato" | "observacoes">;
+export type FornecedorForm = Pick<Fornecedor, "nome" | "site" | "contato" | "localizacao" | "observacoes">;
 
 export type Papel = "admin" | "membro";
 

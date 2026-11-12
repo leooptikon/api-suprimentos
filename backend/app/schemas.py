@@ -17,9 +17,10 @@ class FornecedorIn(_Base):
     nome: str = Field(min_length=1, max_length=120)
     site: str | None = Field(default=None, max_length=255)
     contato: str | None = Field(default=None, max_length=160)
+    localizacao: str | None = Field(default=None, max_length=120)
     observacoes: str | None = None
 
-    _limpa = field_validator("site", "contato", "observacoes", mode="before")(_vazio_para_none)
+    _limpa = field_validator("site", "contato", "localizacao", "observacoes", mode="before")(_vazio_para_none)
 
 
 class FornecedorOut(FornecedorIn):

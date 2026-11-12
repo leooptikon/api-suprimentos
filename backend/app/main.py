@@ -24,11 +24,14 @@ def _migrar():
     movs = {c["name"] for c in insp.get_columns("movimentacoes")}
     produtos_cols = {c["name"] for c in insp.get_columns("produtos")}
     vinculo_cols = {c["name"] for c in insp.get_columns("produto_fornecedor")}
+    fornecedor_cols = {c["name"] for c in insp.get_columns("fornecedores")}
     with engine.begin() as con:
         if "email" in pessoas and "usuario" not in pessoas:
             con.execute(text("ALTER TABLE pessoas RENAME COLUMN email TO usuario"))
         if "estorno_de_id" not in movs:
             con.execute(text("ALTER TABLE movimentacoes ADD COLUMN estorno_de_id INTEGER REFERENCES movimentacoes(id)"))
+        if "localizacao" not in fornecedor_cols:
+            con.execute(text("ALTER TABLE fornecedores ADD COLUMN localizacao VARCHAR(120)"))
         for col, tipo in [("preco_atualizado_em", "DATETIME"), ("frete_gratis", "BOOLEAN"),
                           ("situacao_anuncio", "VARCHAR(24)"), ("erro_coleta", "VARCHAR(255)")]:
             if col not in vinculo_cols:

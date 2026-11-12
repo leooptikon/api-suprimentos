@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ExternalLink, Pencil, Phone, Plus, Store, Trash2 } from "lucide-react";
+import { ExternalLink, MapPin, Pencil, Phone, Plus, Store, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useInvalidar } from "../components/acoes";
@@ -98,11 +98,21 @@ export function Fornecedores() {
                   </div>
                 )}
               </div>
-              {f.contato && (
-                <p className="mt-4 flex items-center gap-2 text-sm text-muted">
-                  <Phone className="size-3.5 text-subtle" />
-                  {f.contato}
-                </p>
+              {(f.contato || f.localizacao) && (
+                <div className="mt-4 flex flex-col gap-1.5 text-sm text-muted">
+                  {f.contato && (
+                    <p className="flex items-center gap-2">
+                      <Phone className="size-3.5 shrink-0 text-subtle" />
+                      <span className="truncate">{f.contato}</span>
+                    </p>
+                  )}
+                  {f.localizacao && (
+                    <p className="flex items-center gap-2">
+                      <MapPin className="size-3.5 shrink-0 text-subtle" />
+                      <span className="truncate">{f.localizacao}</span>
+                    </p>
+                  )}
+                </div>
               )}
               {f.observacoes && <p className="mt-2 line-clamp-2 text-sm text-muted">{f.observacoes}</p>}
               <p className="mt-auto pt-4 text-xs text-subtle">
@@ -140,6 +150,7 @@ function FornecedorModal({ fornecedor, aoFechar }: { fornecedor?: Fornecedor; ao
     nome: fornecedor?.nome ?? "",
     site: fornecedor?.site ?? "",
     contato: fornecedor?.contato ?? "",
+    localizacao: fornecedor?.localizacao ?? "",
     observacoes: fornecedor?.observacoes ?? "",
   });
   const set = (k: keyof FornecedorForm, v: string) => setF((s) => ({ ...s, [k]: v }));
@@ -187,6 +198,17 @@ function FornecedorModal({ fornecedor, aoFechar }: { fornecedor?: Fornecedor; ao
         </Campo>
         <Campo rotulo="Contato">
           {(id) => <Input id={id} value={f.contato ?? ""} onChange={(e) => set("contato", e.target.value)} placeholder="Telefone, e-mail ou vendedor" maxLength={160} />}
+        </Campo>
+        <Campo rotulo="Localização">
+          {(id) => (
+            <Input
+              id={id}
+              value={f.localizacao ?? ""}
+              onChange={(e) => set("localizacao", e.target.value)}
+              placeholder="Ex.: São Paulo/SP, Santa Ifigênia"
+              maxLength={120}
+            />
+          )}
         </Campo>
         <Campo rotulo="Observações">
           {(id) => <Textarea id={id} value={f.observacoes ?? ""} onChange={(e) => set("observacoes", e.target.value)} placeholder="Prazo de entrega, frete grátis acima de…" />}

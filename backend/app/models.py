@@ -59,6 +59,7 @@ class Fornecedor(Base):
     nome: Mapped[str] = mapped_column(String(120), unique=True)
     site: Mapped[str | None] = mapped_column(String(255))
     contato: Mapped[str | None] = mapped_column(String(160))
+    localizacao: Mapped[str | None] = mapped_column(String(120))  # opcional: cidade/UF, endereço da loja…
     observacoes: Mapped[str | None] = mapped_column(Text)
     criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora)
 
