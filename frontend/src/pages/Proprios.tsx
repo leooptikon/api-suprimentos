@@ -208,7 +208,7 @@ export function ListaUnidades({ proprioId }: { proprioId?: number }) {
       <div className="flex flex-col gap-3 border-b border-line p-4 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-subtle" />
-          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nº de série, local…" className="pl-9" aria-label="Buscar unidades" />
+          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nº de série, projeto…" className="pl-9" aria-label="Buscar unidades" />
         </div>
         {!proprioId && (
           <Select value={filtroProprio ?? ""} onChange={(e) => setParam("proprio", e.target.value)} className="lg:w-52" aria-label="Produto">
@@ -255,7 +255,7 @@ export function ListaUnidades({ proprioId }: { proprioId?: number }) {
                 <th className="px-4 py-2.5 font-medium">Nº de série</th>
                 {!proprioId && <th className="hidden px-4 py-2.5 font-medium md:table-cell">Produto</th>}
                 <th className="px-4 py-2.5 font-medium">Situação</th>
-                <th className="hidden px-4 py-2.5 font-medium lg:table-cell">Onde está</th>
+                <th className="hidden px-4 py-2.5 font-medium lg:table-cell">Projeto</th>
                 <th className="hidden px-4 py-2.5 font-medium sm:table-cell">Atualizado</th>
                 <th className="px-4 py-2.5">
                   <span className="sr-only">Ações</span>
@@ -270,7 +270,9 @@ export function ListaUnidades({ proprioId }: { proprioId?: number }) {
                   <td className="px-4 py-3">
                     <BadgeStatusUnidade status={u.status} />
                   </td>
-                  <td className="hidden max-w-[280px] truncate px-4 py-3 text-muted lg:table-cell">{u.local ?? <span className="text-subtle">—</span>}</td>
+                  <td className="hidden max-w-[280px] truncate px-4 py-3 text-muted lg:table-cell" title={u.projeto_nome ?? u.local ?? undefined}>
+                    {u.projeto_nome ?? u.local ?? <span className="text-subtle">—</span>}
+                  </td>
                   <td className="hidden px-4 py-3 text-xs text-subtle sm:table-cell">{fmtRelativo(u.atualizado_em)}</td>
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-end gap-1">

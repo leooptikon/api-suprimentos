@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Factory, History, Minus, Plus, Search, Trash2, Wrench } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { api, type Produto, type ProprioDetalhe, type ProprioForm, type StatusUnidade, type Unidade } from "../lib/api";
 import { MiniaturaProduto } from "../lib/categorias";
@@ -405,13 +406,18 @@ export function MontarModal({ proprio, aoFechar }: { proprio: ProprioDetalhe; ao
 export function UnidadeModal({ unidade, aoFechar }: { unidade: Unidade; aoFechar: () => void }) {
   const invalidar = useInvalidar();
   const [status, setStatus] = useState<StatusUnidade>(unidade.status);
-  const [local, setLocal] = useState(unidade.local ?? "");
+  const [projetoId, setProjetoId] = useState<number | null>(unidade.projeto_id);
   const [obs, setObs] = useState("");
   const eventos = useQuery({ queryKey: ["eventos-unidade", unidade.id], queryFn: () => api.eventosUnidade(unidade.id) });
+  const projetos = useQuery({ queryKey: ["projetos"], queryFn: api.projetos });
 
-  const precisaLocal = status === "em_campo" && !local.trim();
+  // Para escolher: os projetos que estão no OneDrive (+ o atual, mesmo que a pasta tenha saído de lá)
+  const opcoes = (projetos.data ?? []).filter((p) => p.no_onedrive || p.id === unidade.projeto_id);
+  const haProjetos = (projetos.data ?? []).some((p) => p.no_onedrive);
+  // Em campo exige projeto — só quando já existem projetos (antes de conectar o OneDrive não trava ninguém)
+  const precisaProjeto = status === "em_campo" && !projetoId && haProjetos;
   const salvar = useMutation({
-    mutationFn: () => api.atualizarUnidade(unidade.id, { status, local: local || null, observacao: obs || null }),
+    mutationFn: () => api.atualizarUnidade(unidade.id, { status, projeto_id: projetoId, observacao: obs || null }),
     onSuccess: (u) => {
       toast.success(`${u.numero_serie}: ${STATUS_UNIDADE[u.status].rotulo}`);
       invalidar();
@@ -433,7 +439,7 @@ export function UnidadeModal({ unidade, aoFechar }: { unidade: Unidade; aoFechar
           <Botao variante="ghost" onClick={aoFechar}>
             Fechar
           </Botao>
-          <Botao variante="primary" type="submit" form="form-unidade" disabled={precisaLocal} carregando={salvar.isPending}>
+          <Botao variante="primary" type="submit" form="form-unidade" disabled={precisaProjeto} carregando={salvar.isPending}>
             Salvar
           </Botao>
         </>
@@ -444,7 +450,7 @@ export function UnidadeModal({ unidade, aoFechar }: { unidade: Unidade; aoFechar
         className="flex flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!precisaLocal) salvar.mutate();
+          if (!precisaProjeto) salvar.mutate();
         }}
       >
         <fieldset>
@@ -468,8 +474,42 @@ export function UnidadeModal({ unidade, aoFechar }: { unidade: Unidade; aoFechar
             ))}
           </div>
         </fieldset>
-        <Campo rotulo="Onde está" obrigatorio={status === "em_campo"} erro={precisaLocal ? "Informe o cliente, obra ou endereço" : undefined}>
-          {(id) => <Input id={id} value={local} onChange={(e) => setLocal(e.target.value)} placeholder="Ex.: Cliente Acme — Galpão 2" maxLength={160} />}
+        <Campo
+          rotulo="Projeto"
+          obrigatorio={status === "em_campo" && haProjetos}
+          erro={precisaProjeto ? "Escolha em qual projeto (empresa) a unidade está" : undefined}
+          dica={
+            projetos.isSuccess && !haProjetos ? (
+              <>
+                Nenhum projeto ainda: eles vêm das pastas do OneDrive (veja{" "}
+                <Link to="/projetos" className="text-primary hover:underline">
+                  Projetos
+                </Link>
+                ).
+              </>
+            ) : unidade.local && !unidade.projeto_id ? (
+              `Antes estava anotado: ${unidade.local}`
+            ) : (
+              "No escritório, use o 21.0. Os projetos vêm das pastas do OneDrive."
+            )
+          }
+        >
+          {(id) => (
+            <Select
+              id={id}
+              value={projetoId ?? ""}
+              onChange={(e) => setProjetoId(e.target.value ? Number(e.target.value) : null)}
+              disabled={projetos.isLoading || opcoes.length === 0}
+            >
+              <option value="">{opcoes.length ? "Sem projeto" : "Nenhum projeto disponível"}</option>
+              {opcoes.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nome}
+                  {!p.no_onedrive && " (saiu do OneDrive)"}
+                </option>
+              ))}
+            </Select>
+          )}
         </Campo>
         <Campo rotulo="Observação">
           {(id) => <Textarea id={id} value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Ex.: Instalado pelo Bruno; trocar bateria em março" className="min-h-16" />}
@@ -494,8 +534,8 @@ export function UnidadeModal({ unidade, aoFechar }: { unidade: Unidade; aoFechar
                     {e.registrado_por_nome && ` · ${e.registrado_por_nome}`}
                   </span>
                 </div>
-                {(e.local || e.observacao) && (
-                  <p className="mt-1 text-sm text-muted">{[e.local, e.observacao].filter(Boolean).join(" — ")}</p>
+                {(e.projeto_nome || e.local || e.observacao) && (
+                  <p className="mt-1 text-sm text-muted">{[e.projeto_nome ?? e.local, e.observacao].filter(Boolean).join(" — ")}</p>
                 )}
               </li>
             ))}

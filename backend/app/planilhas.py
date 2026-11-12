@@ -17,6 +17,25 @@ def planilha(titulo: str, colunas: list[str], linhas: list[list], rodape: list |
     wb = Workbook()
     ws = wb.active
     ws.title = titulo
+    _preencher(ws, colunas, linhas, rodape)
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf
+
+
+def pasta_de_trabalho(abas: list[tuple[str, list[str], list[list]]]) -> bytes:
+    """Um arquivo .xlsx com várias abas: [(titulo, colunas, linhas), …]."""
+    wb = Workbook()
+    wb.remove(wb.active)
+    for titulo, colunas, linhas in abas:
+        _preencher(wb.create_sheet(titulo[:31]), colunas, linhas)
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def _preencher(ws, colunas: list[str], linhas: list[list], rodape: list | None = None):
     ws.append(colunas)
     for c in ws[1]:
         c.font = Font(bold=True, color="FFFFFF")
@@ -34,10 +53,6 @@ def planilha(titulo: str, colunas: list[str], linhas: list[list], rodape: list |
         ws.append(rodape)
         for c in ws[ws.max_row]:
             c.font = Font(bold=True)
-    buf = BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    return buf
 
 
 def download(buf: BytesIO, nome: str) -> StreamingResponse:

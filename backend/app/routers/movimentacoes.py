@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from .. import models, schemas, services
+from .. import models, relatorios, schemas, services
 from ..auth import usuario_atual
 from ..db import get_db
 from ..planilhas import FUSO, download, planilha
@@ -164,20 +164,7 @@ def dashboard(db: Session = Depends(get_db)):
 # ---------- Exportação para Excel ----------
 @router.get("/exportar/estoque.xlsx", tags=["Exportação"])
 def exportar_estoque(db: Session = Depends(get_db)):
-    produtos = db.scalars(
-        select(models.Produto)
-        .where(models.Produto.arquivado.is_(False))
-        .options(selectinload(models.Produto.fornecedores).selectinload(models.ProdutoFornecedor.fornecedor))
-        .order_by(func.lower(models.Produto.nome))
-    )
-    rotulo = {"ok": "OK", "baixo": "Estoque baixo", "esgotado": "Esgotado"}
-    linhas = []
-    for p in produtos:
-        out = services.produto_out(p)
-        linhas.append([p.nome, p.categoria, p.quantidade, p.unidade, p.estoque_minimo, rotulo[out.status],
-                       p.localizacao, out.fornecedor_preferido, out.menor_preco, p.descricao])
-    colunas = ["Produto", "Categoria", "Quantidade", "Unidade", "Estoque mínimo", "Situação",
-               "Localização", "Fornecedor preferido", "Menor preço (R$)", "Descrição"]
+    colunas, linhas = relatorios.estoque(db)
     return download(planilha("Estoque", colunas, linhas), "estoque")
 
 

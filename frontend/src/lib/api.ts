@@ -192,6 +192,10 @@ export interface Unidade {
   proprio_nome: string;
   numero_serie: string;
   status: StatusUnidade;
+  projeto_id: number | null;
+  /** Exatamente o nome da pasta no OneDrive, ex.: "21.40 - TM ENGENHARIA" */
+  projeto_nome: string | null;
+  /** Texto livre de antes dos projetos (só nas unidades antigas) */
   local: string | null;
   observacao: string | null;
   montagem_id: number | null;
@@ -202,6 +206,7 @@ export interface Unidade {
 export interface EventoUnidade {
   id: number;
   status: StatusUnidade;
+  projeto_nome: string | null;
   local: string | null;
   observacao: string | null;
   registrado_por_nome: string | null;
@@ -233,6 +238,51 @@ export interface StatusML {
   ultima: ExecucaoColeta | null;
   anuncios_monitorados: number;
   reconectar_ate: string | null;
+}
+
+export interface Projeto {
+  id: number;
+  /** Exatamente o nome da pasta no OneDrive, ex.: "21.40 - TM ENGENHARIA" */
+  nome: string;
+  url: string | null;
+  /** false = a pasta saiu do OneDrive; não aparece mais para escolher */
+  no_onedrive: boolean;
+  unidades: { id: number; numero_serie: string; proprio_nome: string; status: StatusUnidade }[];
+}
+
+export interface OrigemProjetos {
+  conectado: boolean;
+  pasta_definida: boolean;
+  pasta_nome: string | null;
+  pasta_url: string | null;
+  lidos_em: string | null;
+  erro: string | null;
+}
+
+export interface LeituraProjetos {
+  total: number;
+  novos: number;
+  renomeados: number;
+  sumiram: number;
+}
+
+export interface StatusOneDrive {
+  configurado: boolean;
+  conectado: boolean;
+  conta: string | null;
+  nome_conta: string | null;
+  conectado_em: string | null;
+  /** Login por código em andamento (microsoft.com/devicelogin) */
+  login_pendente: { codigo: string; link: string; expira_em: string } | null;
+  destino_definido: boolean;
+  pasta_nome: string | null;
+  pasta_url: string | null;
+  arquivo_nome: string | null;
+  arquivo_url: string | null;
+  ultimo_envio: string | null;
+  ultima_tentativa: string | null;
+  erro: string | null;
+  intervalo_segundos: number;
 }
 
 export interface PontoPreco {
@@ -345,8 +395,9 @@ export const api = {
   montar: (id: number, d: { quantidade: number; pessoa_id: number | null; status_inicial: "em_producao" | "pronto"; observacao: string | null }) =>
     http<{ id: number; quantidade: number; unidades: Unidade[] }>("POST", `/api/proprios/${id}/montar`, d),
   cancelarMontagem: (id: number) => http<void>("POST", `/api/proprios/montagens/${id}/cancelar`),
-  unidades: (f: { proprio_id?: number; status?: string; busca?: string } = {}) => http<Unidade[]>("GET", `/api/proprios/unidades${qs(f)}`),
-  atualizarUnidade: (id: number, d: { status: StatusUnidade; local: string | null; observacao: string | null }) =>
+  unidades: (f: { proprio_id?: number; status?: string; projeto_id?: number; busca?: string } = {}) =>
+    http<Unidade[]>("GET", `/api/proprios/unidades${qs(f)}`),
+  atualizarUnidade: (id: number, d: { status: StatusUnidade; projeto_id: number | null; observacao: string | null }) =>
     http<Unidade>("PATCH", `/api/proprios/unidades/${id}`, d),
   eventosUnidade: (id: number) => http<EventoUnidade[]>("GET", `/api/proprios/unidades/${id}/eventos`),
 
@@ -356,6 +407,18 @@ export const api = {
   desconectarML: () => http<void>("POST", "/api/mercadolivre/desconectar"),
   atualizarML: () => http<ExecucaoColeta>("POST", "/api/mercadolivre/atualizar"),
   historicoPrecos: (produtoId: number) => http<PontoPreco[]>("GET", `/api/mercadolivre/historico/${produtoId}`),
+
+  projetos: () => http<Projeto[]>("GET", "/api/projetos"),
+  origemProjetos: () => http<OrigemProjetos>("GET", "/api/projetos/origem"),
+  pastaProjetos: (link: string) => http<LeituraProjetos>("POST", "/api/projetos/pasta", { link }),
+  atualizarProjetos: () => http<LeituraProjetos>("POST", "/api/projetos/atualizar"),
+
+  statusOneDrive: () => http<StatusOneDrive>("GET", "/api/onedrive/status"),
+  conectarOneDrive: () => http<StatusOneDrive>("POST", "/api/onedrive/conectar"),
+  verificarOneDrive: () => http<StatusOneDrive>("POST", "/api/onedrive/verificar"),
+  pastaOneDrive: (link: string) => http<StatusOneDrive>("POST", "/api/onedrive/pasta", { link }),
+  sincronizarOneDrive: () => http<StatusOneDrive>("POST", "/api/onedrive/sincronizar"),
+  desconectarOneDrive: () => http<void>("POST", "/api/onedrive/desconectar"),
 
   compras: () => http<ItemCompra[]>("GET", "/api/compras"),
   /** POST que devolve arquivo: baixa sem sair da página */

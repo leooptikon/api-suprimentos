@@ -206,6 +206,23 @@ class Montagem(Base):
     movimentacoes: Mapped[list[Movimentacao]] = relationship()
 
 
+class Projeto(Base):
+    """Projeto/empresa = uma pasta do OneDrive no formato "21.40 - TM ENGENHARIA".
+    O ".0" (ex.: 21.0 - GERENCIAMENTO) é a própria empresa, no escritório."""
+
+    __tablename__ = "projetos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nome: Mapped[str] = mapped_column(String(255))  # exatamente o nome da pasta: "21.40 - TM ENGENHARIA"
+    codigo: Mapped[str] = mapped_column(String(20), index=True)  # "21.40", só para ordenar
+    pasta_id: Mapped[str] = mapped_column(String(200), unique=True)  # id da pasta no OneDrive (estável mesmo se renomear)
+    url: Mapped[str | None] = mapped_column(String(1000))
+    # False quando a pasta sumiu do OneDrive (apagada/movida): sai da lista de escolha, mas as unidades mantêm
+    no_onedrive: Mapped[bool] = mapped_column(Boolean, default=True)
+    criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora)
+    atualizado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora, onupdate=agora)
+
+
 class Unidade(Base):
     """Uma peça física montada (um Olie específico), com número de série e situação."""
 
@@ -217,12 +234,15 @@ class Unidade(Base):
     sequencia: Mapped[int] = mapped_column(Integer)
     numero_serie: Mapped[str] = mapped_column(String(24), unique=True)
     status: Mapped[str] = mapped_column(String(16), index=True)
+    projeto_id: Mapped[int | None] = mapped_column(ForeignKey("projetos.id"), index=True)
+    # Texto livre de antes dos projetos; não é mais preenchido, só exibido nas unidades antigas
     local: Mapped[str | None] = mapped_column(String(160))
     observacao: Mapped[str | None] = mapped_column(Text)
     criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora)
     atualizado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora, onupdate=agora)
 
     proprio: Mapped[ProdutoProprio] = relationship(back_populates="unidades")
+    projeto: Mapped[Projeto | None] = relationship()
     eventos: Mapped[list["EventoUnidade"]] = relationship(
         back_populates="unidade", cascade="all, delete-orphan", order_by="EventoUnidade.id.desc()"
     )
@@ -241,12 +261,14 @@ class EventoUnidade(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     unidade_id: Mapped[int] = mapped_column(ForeignKey("unidades.id", ondelete="CASCADE"), index=True)
     status: Mapped[str] = mapped_column(String(16))
+    projeto_id: Mapped[int | None] = mapped_column(ForeignKey("projetos.id"))
     local: Mapped[str | None] = mapped_column(String(160))
     observacao: Mapped[str | None] = mapped_column(String(255))
     registrado_por_id: Mapped[int | None] = mapped_column(ForeignKey("pessoas.id"))
     criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora)
 
     unidade: Mapped[Unidade] = relationship(back_populates="eventos")
+    projeto: Mapped[Projeto | None] = relationship()
     registrado_por: Mapped[Pessoa | None] = relationship()
 
 
@@ -266,6 +288,45 @@ class IntegracaoML(Base):
     # Autorização em andamento (OAuth com PKCE)
     estado_pendente: Mapped[str | None] = mapped_column(String(64))
     verificador_pendente: Mapped[str | None] = mapped_column(String(128))
+
+
+class IntegracaoOneDrive(Base):
+    """Uma linha só: a conta Microsoft conectada, a pasta de destino e o estado do último envio da planilha."""
+
+    __tablename__ = "integracao_onedrive"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Tokens da Microsoft são longos (JWT); o refresh token muda a cada renovação
+    access_token: Mapped[str | None] = mapped_column(Text)
+    refresh_token: Mapped[str | None] = mapped_column(Text)
+    expira_em: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    conta: Mapped[str | None] = mapped_column(String(160))
+    nome_conta: Mapped[str | None] = mapped_column(String(160))
+    conectado_em: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    # Login por código em andamento (microsoft.com/devicelogin)
+    device_code: Mapped[str | None] = mapped_column(Text)
+    codigo_usuario: Mapped[str | None] = mapped_column(String(32))
+    link_verificacao: Mapped[str | None] = mapped_column(String(255))
+    codigo_expira_em: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    # Destino: pasta (ou pasta do arquivo indicado) + nome do arquivo
+    drive_id: Mapped[str | None] = mapped_column(String(200))
+    pasta_id: Mapped[str | None] = mapped_column(String(200))
+    pasta_nome: Mapped[str | None] = mapped_column(String(255))
+    pasta_url: Mapped[str | None] = mapped_column(String(1000))
+    arquivo_nome: Mapped[str | None] = mapped_column(String(255))
+    arquivo_url: Mapped[str | None] = mapped_column(String(1000))
+    # Envio: só manda de novo quando o conteúdo muda (hash das linhas)
+    ultimo_hash: Mapped[str | None] = mapped_column(String(64))
+    ultimo_envio: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    ultima_tentativa: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    erro: Mapped[str | None] = mapped_column(String(500))
+    # Pasta cujas subpastas são os projetos ("21.40 - TM ENGENHARIA")
+    projetos_drive_id: Mapped[str | None] = mapped_column(String(200))
+    projetos_pasta_id: Mapped[str | None] = mapped_column(String(200))
+    projetos_pasta_nome: Mapped[str | None] = mapped_column(String(255))
+    projetos_pasta_url: Mapped[str | None] = mapped_column(String(1000))
+    projetos_lidos_em: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    projetos_erro: Mapped[str | None] = mapped_column(String(500))
 
 
 class PrecoColetado(Base):

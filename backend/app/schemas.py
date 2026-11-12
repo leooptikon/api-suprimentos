@@ -312,7 +312,9 @@ class UnidadeOut(BaseModel):
     proprio_nome: str
     numero_serie: str
     status: StatusUnidade
-    local: str | None
+    projeto_id: int | None
+    projeto_nome: str | None
+    local: str | None  # texto livre antigo (antes dos projetos)
     observacao: str | None
     montagem_id: int | None
     criado_em: datetime
@@ -321,6 +323,7 @@ class UnidadeOut(BaseModel):
 
 class UnidadeUpdate(_Base):
     status: StatusUnidade
+    projeto_id: int | None = None
     local: str | None = Field(default=None, max_length=160)
     observacao: str | None = Field(default=None, max_length=255)
 
@@ -330,6 +333,7 @@ class UnidadeUpdate(_Base):
 class EventoOut(BaseModel):
     id: int
     status: StatusUnidade
+    projeto_nome: str | None
     local: str | None
     observacao: str | None
     registrado_por_nome: str | None

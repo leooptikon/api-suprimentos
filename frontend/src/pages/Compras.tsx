@@ -8,6 +8,7 @@ import { CabecalhoPagina } from "../components/Layout";
 import { Botao, Card, cn, Esqueleto, Input, Select, StatusBadge, Vazio } from "../components/ui";
 import { api, type ItemCompra } from "../lib/api";
 import { EtiquetaCategoria, MiniaturaProduto } from "../lib/categorias";
+import { copiar } from "../lib/copiar";
 import { fmtMoeda, fmtNum } from "../lib/format";
 
 interface Escolha {
@@ -20,19 +21,6 @@ const lerQtd = (v: string) => {
   const n = Number(v.replace(",", "."));
   return Number.isFinite(n) && n > 0 ? n : 0;
 };
-
-/** Copia mesmo fora de HTTPS (ex.: acessando pelo IP da rede), onde navigator.clipboard não existe. */
-async function copiar(texto: string) {
-  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(texto);
-  const area = Object.assign(document.createElement("textarea"), { value: texto });
-  area.style.position = "fixed";
-  area.style.opacity = "0";
-  document.body.appendChild(area);
-  area.select();
-  const ok = document.execCommand("copy");
-  area.remove();
-  if (!ok) throw new Error("Não foi possível copiar");
-}
 
 export function Compras() {
   const { admin } = useAuth();

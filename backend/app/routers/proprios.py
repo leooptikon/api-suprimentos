@@ -91,6 +91,8 @@ def _unidade_out(u: models.Unidade) -> schemas.UnidadeOut:
         proprio_nome=u.proprio.nome,
         numero_serie=u.numero_serie,
         status=u.status,
+        projeto_id=u.projeto_id,
+        projeto_nome=u.projeto.nome if u.projeto else None,
         local=u.local,
         observacao=u.observacao,
         montagem_id=u.montagem_id,
@@ -104,22 +106,31 @@ def _unidade_out(u: models.Unidade) -> schemas.UnidadeOut:
 def listar_unidades(
     proprio_id: int | None = None,
     status: schemas.StatusUnidade | None = None,
+    projeto_id: int | None = None,
     busca: str | None = None,
     db: Session = Depends(get_db),
 ):
     stmt = (
         select(models.Unidade)
-        .options(joinedload(models.Unidade.proprio))
+        .outerjoin(models.Projeto, models.Projeto.id == models.Unidade.projeto_id)
+        .options(joinedload(models.Unidade.proprio), joinedload(models.Unidade.projeto))
         .order_by(models.Unidade.atualizado_em.desc(), models.Unidade.id.desc())
     )
     if proprio_id:
         stmt = stmt.where(models.Unidade.proprio_id == proprio_id)
     if status:
         stmt = stmt.where(models.Unidade.status == status)
+    if projeto_id:
+        stmt = stmt.where(models.Unidade.projeto_id == projeto_id)
     if busca:
         termo = f"%{busca.strip()}%"
         stmt = stmt.where(
-            or_(models.Unidade.numero_serie.ilike(termo), models.Unidade.local.ilike(termo), models.Unidade.observacao.ilike(termo))
+            or_(
+                models.Unidade.numero_serie.ilike(termo),
+                models.Projeto.nome.ilike(termo),
+                models.Unidade.local.ilike(termo),
+                models.Unidade.observacao.ilike(termo),
+            )
         )
     return [_unidade_out(u) for u in db.scalars(stmt.limit(2000))]
 
@@ -131,18 +142,25 @@ def atualizar_unidade(
     db: Session = Depends(get_db),
     usuario: models.Pessoa = Depends(usuario_atual),
 ):
-    """Muda a situação/local. Membros também podem (quem leva para campo nem sempre é admin)."""
+    """Muda a situação/projeto. Membros também podem (quem leva para campo nem sempre é admin)."""
     u = db.scalar(select(models.Unidade).where(models.Unidade.id == unidade_id).options(joinedload(models.Unidade.proprio)))
     if not u:
         raise HTTPException(404, "Unidade não encontrada")
-    if dados.status == "em_campo" and not dados.local:
-        raise HTTPException(422, "Informe onde a unidade está (cliente, obra ou endereço)")
-    u.status, u.local, u.observacao = dados.status, dados.local, dados.observacao
+    if dados.projeto_id is not None and not db.get(models.Projeto, dados.projeto_id):
+        raise HTTPException(422, "Projeto não encontrado")
+    # Em campo exige o projeto (empresa) — a não ser que ainda não haja nenhum projeto lido do OneDrive
+    ha_projetos = db.scalar(select(models.Projeto.id).where(models.Projeto.no_onedrive.is_(True)).limit(1)) is not None
+    if dados.status == "em_campo" and not dados.projeto_id and ha_projetos:
+        raise HTTPException(422, "Escolha o projeto (empresa) onde a unidade está")
+    u.status, u.projeto_id, u.local, u.observacao = dados.status, dados.projeto_id, dados.local, dados.observacao
     u.atualizado_em = models.agora()
     u.eventos.append(
-        models.EventoUnidade(status=dados.status, local=dados.local, observacao=dados.observacao, registrado_por_id=usuario.id)
+        models.EventoUnidade(
+            status=dados.status, projeto_id=dados.projeto_id, local=dados.local, observacao=dados.observacao, registrado_por_id=usuario.id
+        )
     )
     db.commit()
+    db.refresh(u)
     return _unidade_out(u)
 
 
@@ -151,13 +169,14 @@ def eventos_unidade(unidade_id: int, db: Session = Depends(get_db)):
     eventos = db.scalars(
         select(models.EventoUnidade)
         .where(models.EventoUnidade.unidade_id == unidade_id)
-        .options(joinedload(models.EventoUnidade.registrado_por))
+        .options(joinedload(models.EventoUnidade.registrado_por), joinedload(models.EventoUnidade.projeto))
         .order_by(models.EventoUnidade.id.desc())
     )
     return [
         schemas.EventoOut(
             id=e.id,
             status=e.status,
+            projeto_nome=e.projeto.nome if e.projeto else None,
             local=e.local,
             observacao=e.observacao,
             registrado_por_nome=e.registrado_por.nome if e.registrado_por else None,

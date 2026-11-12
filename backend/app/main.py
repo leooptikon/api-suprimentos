@@ -8,9 +8,11 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text
 
 from .db import Base, engine
-from . import mercadolivre
+from . import mercadolivre, onedrive
 from .db import SessionLocal
 from .routers import autenticacao, cadastros, compras, integracoes, movimentacoes, produtos, proprios
+from .routers import onedrive as rotas_onedrive
+from .routers import projetos
 
 Base.metadata.create_all(engine)
 
@@ -37,6 +39,16 @@ def _migrar():
             con.execute(text("ALTER TABLE movimentacoes ADD COLUMN montagem_id INTEGER REFERENCES montagens(id)"))
         if "estornada" not in movs:
             con.execute(text("ALTER TABLE movimentacoes ADD COLUMN estornada BOOLEAN NOT NULL DEFAULT 0"))
+        # Projetos (pastas do OneDrive) no lugar do "local" das unidades
+        for tabela in ("unidades", "eventos_unidade"):
+            if "projeto_id" not in {c["name"] for c in insp.get_columns(tabela)}:
+                con.execute(text(f"ALTER TABLE {tabela} ADD COLUMN projeto_id INTEGER REFERENCES projetos(id)"))
+        onedrive_cols = {c["name"] for c in insp.get_columns("integracao_onedrive")}
+        for col, tipo in [("projetos_drive_id", "VARCHAR(200)"), ("projetos_pasta_id", "VARCHAR(200)"),
+                          ("projetos_pasta_nome", "VARCHAR(255)"), ("projetos_pasta_url", "VARCHAR(1000)"),
+                          ("projetos_lidos_em", "DATETIME"), ("projetos_erro", "VARCHAR(500)")]:
+            if col not in onedrive_cols:
+                con.execute(text(f"ALTER TABLE integracao_onedrive ADD COLUMN {col} {tipo}"))
 
 
 _migrar()
@@ -63,12 +75,16 @@ app.include_router(movimentacoes.router)
 app.include_router(compras.router)
 app.include_router(proprios.router)
 app.include_router(integracoes.router)
+app.include_router(rotas_onedrive.router)
+app.include_router(projetos.router)
 
 
 @app.on_event("startup")
 def _agendar_coleta():
     # Atualização diária dos preços do Mercado Livre (só age se a conta estiver conectada)
     mercadolivre.iniciar_agendador(SessionLocal)
+    # Espelho do estoque na planilha do OneDrive (só age com a conta conectada e a pasta escolhida)
+    onedrive.iniciar_agendador(SessionLocal)
 
 
 @app.get("/api/saude", tags=["Sistema"])
