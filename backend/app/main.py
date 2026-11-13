@@ -10,7 +10,7 @@ from sqlalchemy import inspect, text
 from .db import Base, engine
 from . import mercadolivre, onedrive
 from .db import SessionLocal
-from .routers import autenticacao, cadastros, compras, integracoes, movimentacoes, produtos, proprios
+from .routers import autenticacao, cadastros, compras, evolucao, integracoes, movimentacoes, produtos, proprios
 from .routers import onedrive as rotas_onedrive
 from .routers import projetos
 
@@ -86,6 +86,7 @@ app.include_router(cadastros.pessoas)
 app.include_router(movimentacoes.router)
 app.include_router(compras.router)
 app.include_router(proprios.router)
+app.include_router(evolucao.router)
 app.include_router(integracoes.router)
 app.include_router(rotas_onedrive.router)
 app.include_router(projetos.router)

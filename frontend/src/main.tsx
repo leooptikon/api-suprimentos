@@ -9,6 +9,7 @@ import { Layout } from "./components/Layout";
 import "./index.css";
 import { Compras } from "./pages/Compras";
 import { Dashboard } from "./pages/Dashboard";
+import { Evolucao, EvolucaoDetalhePagina } from "./pages/Evolucao";
 import { Fornecedores } from "./pages/Fornecedores";
 import { Integracoes } from "./pages/Integracoes";
 import { Movimentacoes } from "./pages/Movimentacoes";
@@ -35,6 +36,8 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="produtos/:id" element={<ProdutoDetalhe />} />
                 <Route path="proprios" element={<Proprios />} />
                 <Route path="proprios/:id" element={<ProprioDetalhePagina />} />
+                <Route path="evolucao" element={<Evolucao />} />
+                <Route path="evolucao/:id" element={<EvolucaoDetalhePagina />} />
                 <Route path="projetos" element={<Projetos />} />
                 <Route path="compras" element={<Compras />} />
                 <Route path="movimentacoes" element={<Movimentacoes />} />

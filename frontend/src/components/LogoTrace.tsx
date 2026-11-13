@@ -2,9 +2,26 @@
  * Logo "Trace" desenhada em SVG. O "T" com o vão no meio vem da marca da Optikon.
  * Usa a cor do texto (currentColor), então funciona nos temas claro e escuro.
  */
-export function LogoTrace({ className }: { className?: string }) {
+export function LogoTrace({ className, neon }: { className?: string; neon?: boolean }) {
+  // neon: letra na cor do texto com brilho na cor de destaque em volta (menu lateral)
   return (
-    <svg viewBox="110 115 1380 309" fill="currentColor" fillRule="evenodd" role="img" aria-label="Trace" className={className}>
+    <svg
+      viewBox="110 115 1380 309"
+      fill="currentColor"
+      fillRule="evenodd"
+      role="img"
+      aria-label="Trace"
+      className={className}
+      style={
+        neon
+          ? {
+              overflow: "visible",
+              filter:
+                "drop-shadow(0 0 2px color-mix(in srgb, var(--primary) 90%, transparent)) drop-shadow(0 0 8px color-mix(in srgb, var(--primary) 55%, transparent))",
+            }
+          : undefined
+      }
+    >
       {/* T */}
       <path d="M110 124h110v52H110zM219 176h64v237h-64zM282 124h110v52H282z" />
       {/* R */}

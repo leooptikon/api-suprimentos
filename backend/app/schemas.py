@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -386,3 +386,74 @@ class MontagemOut(BaseModel):
     id: int
     quantidade: int
     unidades: list[UnidadeOut]
+
+
+# ---------- Evolução dos produtos próprios ----------
+OrigemMelhoria = Literal["montagem", "campo", "manutencao", "custo", "outro"]
+AreaMelhoria = Literal["estrutura", "eletrica", "cabos", "software", "fornecedor", "outro"]
+StatusMelhoria = Literal["ideia", "teste", "aplicada", "descartada"]
+
+
+class MelhoriaIn(_Base):
+    titulo: str = Field(min_length=1, max_length=160)
+    descricao: str | None = Field(default=None, max_length=5000)
+    origem: OrigemMelhoria = "outro"
+    area: AreaMelhoria = "outro"
+
+    _limpa = field_validator("descricao", mode="before")(_vazio_para_none)
+
+
+class StatusMelhoriaIn(_Base):
+    status: StatusMelhoria
+    versao_id: int | None = None
+    decisao: str | None = Field(default=None, max_length=5000)
+
+    _limpa = field_validator("decisao", mode="before")(_vazio_para_none)
+
+
+class MelhoriaOut(MelhoriaIn):
+    id: int
+    proprio_id: int
+    status: StatusMelhoria
+    versao_id: int | None
+    versao_nome: str | None
+    decisao: str | None
+    autor_id: int | None
+    autor_nome: str | None
+    criado_em: datetime
+    atualizado_em: datetime
+
+
+class VersaoIn(_Base):
+    nome: str = Field(min_length=1, max_length=40, description="Ex.: v2")
+    data: date | None = None
+    resumo: str | None = Field(default=None, max_length=5000)
+
+    _limpa = field_validator("resumo", mode="before")(_vazio_para_none)
+
+
+class VersaoOut(VersaoIn):
+    id: int
+    proprio_id: int
+    criado_por_nome: str | None
+    criado_em: datetime
+    melhorias: list[MelhoriaOut] = []
+
+
+class EvolucaoResumo(BaseModel):
+    """Card de um produto próprio na tela da Evolução."""
+
+    proprio_id: int
+    nome: str
+    prefixo: str
+    tipo: str | None
+    versao_atual: str | None
+    total_versoes: int
+    abertas: int  # ideias + em teste
+    aplicadas: int
+    ultima_atividade: datetime | None
+
+
+class EvolucaoDetalhe(EvolucaoResumo):
+    versoes: list[VersaoOut]  # mais nova primeiro
+    melhorias: list[MelhoriaOut]  # mais nova primeiro

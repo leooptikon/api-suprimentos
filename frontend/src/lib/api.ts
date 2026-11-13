@@ -349,6 +349,62 @@ export const definirAoNaoAutenticado = (fn: () => void) => {
   aoNaoAutenticado = fn;
 };
 
+/* ---------- Evolução dos produtos próprios ---------- */
+export type OrigemMelhoria = "montagem" | "campo" | "manutencao" | "custo" | "outro";
+export type AreaMelhoria = "estrutura" | "eletrica" | "cabos" | "software" | "fornecedor" | "outro";
+export type StatusMelhoria = "ideia" | "teste" | "aplicada" | "descartada";
+
+export interface MelhoriaForm {
+  titulo: string;
+  descricao: string | null;
+  origem: OrigemMelhoria;
+  area: AreaMelhoria;
+}
+
+export interface Melhoria extends MelhoriaForm {
+  id: number;
+  proprio_id: number;
+  status: StatusMelhoria;
+  versao_id: number | null;
+  versao_nome: string | null;
+  decisao: string | null;
+  autor_id: number | null;
+  autor_nome: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface VersaoForm {
+  nome: string;
+  data: string | null;
+  resumo: string | null;
+}
+
+export interface Versao extends VersaoForm {
+  id: number;
+  proprio_id: number;
+  criado_por_nome: string | null;
+  criado_em: string;
+  melhorias: Melhoria[];
+}
+
+export interface EvolucaoResumo {
+  proprio_id: number;
+  nome: string;
+  prefixo: string;
+  tipo: string | null;
+  versao_atual: string | null;
+  total_versoes: number;
+  abertas: number;
+  aplicadas: number;
+  ultima_atividade: string | null;
+}
+
+export interface EvolucaoDetalhe extends EvolucaoResumo {
+  versoes: Versao[];
+  melhorias: Melhoria[];
+}
+
 async function http<T>(method: string, path: string, body?: unknown): Promise<T> {
   const binario = body instanceof Blob;
   const resp = await fetch(path, {
@@ -428,6 +484,17 @@ export const api = {
   proprios: (arquivados = false) => http<Proprio[]>("GET", `/api/proprios${qs({ arquivados: arquivados || undefined })}`),
   proprio: (id: number) => http<ProprioDetalhe>("GET", `/api/proprios/${id}`),
   tiposProprios: () => http<string[]>("GET", "/api/proprios/tipos"),
+
+  evolucao: () => http<EvolucaoResumo[]>("GET", "/api/evolucao"),
+  evolucaoDe: (proprioId: number) => http<EvolucaoDetalhe>("GET", `/api/evolucao/${proprioId}`),
+  anotarMelhoria: (proprioId: number, d: MelhoriaForm) => http<Melhoria>("POST", `/api/evolucao/${proprioId}/melhorias`, d),
+  editarMelhoria: (id: number, d: MelhoriaForm) => http<Melhoria>("PUT", `/api/evolucao/melhorias/${id}`, d),
+  statusMelhoria: (id: number, d: { status: StatusMelhoria; versao_id: number | null; decisao: string | null }) =>
+    http<Melhoria>("PATCH", `/api/evolucao/melhorias/${id}/status`, d),
+  apagarMelhoria: (id: number) => http<void>("DELETE", `/api/evolucao/melhorias/${id}`),
+  criarVersao: (proprioId: number, d: VersaoForm) => http<Versao>("POST", `/api/evolucao/${proprioId}/versoes`, d),
+  editarVersao: (id: number, d: VersaoForm) => http<Versao>("PUT", `/api/evolucao/versoes/${id}`, d),
+  apagarVersao: (id: number) => http<void>("DELETE", `/api/evolucao/versoes/${id}`),
   criarProprio: (d: ProprioForm) => http<ProprioDetalhe>("POST", "/api/proprios", d),
   atualizarProprio: (id: number, d: ProprioForm) => http<ProprioDetalhe>("PUT", `/api/proprios/${id}`, d),
   removerProprio: (id: number) => http<void>("DELETE", `/api/proprios/${id}`),

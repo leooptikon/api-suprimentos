@@ -8,6 +8,7 @@ import {
   KeyRound,
   LayoutDashboard,
   LogOut,
+  Milestone,
   Menu,
   Moon,
   Package,
@@ -35,6 +36,7 @@ const NAV = [
   { to: "/", rotulo: "Visão geral", icone: <LayoutDashboard />, fim: true },
   { to: "/produtos", rotulo: "Produtos", icone: <Package /> },
   { to: "/proprios", rotulo: "Produtos próprios", icone: <Factory /> },
+  { to: "/evolucao", rotulo: "Evolução", icone: <Milestone /> },
   { to: "/projetos", rotulo: "Projetos", icone: <FolderKanban /> },
   { to: "/compras", rotulo: "Lista de compras", icone: <ShoppingCart /> },
   { to: "/movimentacoes", rotulo: "Movimentações", icone: <ArrowLeftRight /> },
@@ -46,14 +48,8 @@ const NAV = [
 
 function Logo() {
   return (
-    <div className="flex items-center gap-2.5">
-      <span className="relative grid size-8 place-items-center rounded-lg border border-primary/30 bg-primary-soft shadow-[0_0_24px_-6px_var(--primary)]">
-        <svg viewBox="0 0 24 24" className="size-[18px] text-primary" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
-          <path d="M12 2.5 20.5 7.25v9.5L12 21.5l-8.5-4.75v-9.5z" />
-          <path d="M3.5 7.25 12 12l8.5-4.75M12 12v9.5" opacity=".55" />
-        </svg>
-      </span>
-      <LogoTrace className="h-[18px] w-auto text-fg" />
+    <div className="flex h-8 items-center pl-0.5">
+      <LogoTrace neon className="h-[22px] w-auto text-fg" />
     </div>
   );
 }

@@ -1,6 +1,6 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, Column, DateTime, Float, ForeignKey, Integer, String, Table, Text, TypeDecorator, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, Column, Date, DateTime, Float, ForeignKey, Integer, String, Table, Text, TypeDecorator, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -401,3 +401,58 @@ class ItemCompraManual(Base):
     criado_por: Mapped[Pessoa | None] = relationship()
 
     __table_args__ = (CheckConstraint("quantidade > 0", name="ck_item_compra_quantidade"),)
+
+
+# ---------- Evolução dos produtos próprios ----------
+ORIGEM_MELHORIA = {"montagem": "Montagem", "campo": "Campo / cliente", "manutencao": "Manutenção", "custo": "Custo", "outro": "Outro"}
+AREA_MELHORIA = {"estrutura": "Estrutura", "eletrica": "Elétrica", "cabos": "Cabos", "software": "Software",
+                 "fornecedor": "Fornecedor / peça", "outro": "Outro"}
+STATUS_MELHORIA = {"ideia": "Ideia", "teste": "Em teste", "aplicada": "Aplicada", "descartada": "Descartada"}
+
+
+class VersaoProprio(Base):
+    """Uma versão de um produto próprio (v1, v2…) e o que mudou nela."""
+
+    __tablename__ = "versoes_proprio"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    proprio_id: Mapped[int] = mapped_column(ForeignKey("produtos_proprios.id", ondelete="CASCADE"), index=True)
+    nome: Mapped[str] = mapped_column(String(40))
+    data: Mapped[date | None] = mapped_column(Date)
+    resumo: Mapped[str | None] = mapped_column(Text)
+    criado_por_id: Mapped[int | None] = mapped_column(ForeignKey("pessoas.id", ondelete="SET NULL"))
+    criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora)
+
+    proprio: Mapped[ProdutoProprio] = relationship()
+    criado_por: Mapped[Pessoa | None] = relationship()
+
+    __table_args__ = (UniqueConstraint("proprio_id", "nome", name="uq_versao_proprio_nome"),)
+
+
+class Melhoria(Base):
+    """Ideia ou problema anotado sobre um produto próprio: ideia → em teste → aplicada numa versão (ou descartada)."""
+
+    __tablename__ = "melhorias"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    proprio_id: Mapped[int] = mapped_column(ForeignKey("produtos_proprios.id", ondelete="CASCADE"), index=True)
+    titulo: Mapped[str] = mapped_column(String(160))
+    descricao: Mapped[str | None] = mapped_column(Text)
+    origem: Mapped[str] = mapped_column(String(20), default="outro")
+    area: Mapped[str] = mapped_column(String(20), default="outro")
+    status: Mapped[str] = mapped_column(String(20), default="ideia")
+    versao_id: Mapped[int | None] = mapped_column(ForeignKey("versoes_proprio.id", ondelete="SET NULL"))
+    decisao: Mapped[str | None] = mapped_column(Text)  # por que foi aplicada/descartada, como ficou
+    autor_id: Mapped[int | None] = mapped_column(ForeignKey("pessoas.id", ondelete="SET NULL"))
+    criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora)
+    atualizado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora, onupdate=agora)
+
+    proprio: Mapped[ProdutoProprio] = relationship()
+    versao: Mapped[VersaoProprio | None] = relationship()
+    autor: Mapped[Pessoa | None] = relationship()
+
+    __table_args__ = (
+        CheckConstraint("origem IN ('montagem', 'campo', 'manutencao', 'custo', 'outro')", name="ck_melhoria_origem"),
+        CheckConstraint("area IN ('estrutura', 'eletrica', 'cabos', 'software', 'fornecedor', 'outro')", name="ck_melhoria_area"),
+        CheckConstraint("status IN ('ideia', 'teste', 'aplicada', 'descartada')", name="ck_melhoria_status"),
+    )
