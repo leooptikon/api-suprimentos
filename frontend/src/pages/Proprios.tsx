@@ -1,6 +1,6 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, ArrowLeft, Factory, Layers, Pencil, Plus, Search, ShoppingCart, Undo2, Wrench } from "lucide-react";
-import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Archive, ArchiveRestore, ArrowLeft, Factory, Layers, Minus, Pencil, Plus, Search, ShoppingCart, Undo2, Wrench } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useInvalidar } from "../components/acoes";
@@ -487,7 +487,16 @@ export function ProprioDetalhePagina() {
                         <td className="tabular px-4 py-3 text-right">
                           {fmtNum(c.quantidade)} <span className="text-xs text-subtle">{c.produto_unidade}</span>
                         </td>
-                        <td className="tabular px-4 py-3 text-right text-muted">{fmtNum(c.em_estoque)}</td>
+                        <td className="px-4 py-3 text-right">
+                          <AjusteRapido
+                            produtoId={c.produto_id}
+                            nome={c.produto_nome}
+                            unidade={c.produto_unidade}
+                            estoque={c.em_estoque}
+                            proprio={p.nome}
+                            desativado={c.produto_arquivado}
+                          />
+                        </td>
                         <td className={cn("tabular px-4 py-3 text-right font-medium", limita ? "text-warn" : "text-fg")}>
                           {c.da_para}
                           {limita && <span className="ml-1.5 text-[11px] font-normal">limita</span>}
@@ -523,5 +532,102 @@ export function ProprioDetalhePagina() {
         />
       )}
     </>
+  );
+}
+
+/**
+ * − / + ao lado do estoque de uma peça. Cliques seguidos se acumulam e viram UMA movimentação
+ * (entrada ou retirada no nome de quem clicou) quando a pessoa para de clicar.
+ */
+function AjusteRapido({
+  produtoId,
+  nome,
+  unidade,
+  estoque,
+  proprio,
+  desativado,
+}: {
+  produtoId: number;
+  nome: string;
+  unidade: string;
+  estoque: number;
+  proprio: string;
+  desativado: boolean;
+}) {
+  const { usuario } = useAuth();
+  const qc = useQueryClient();
+  const [aEnviar, setAEnviar] = useState(0); // cliques ainda esperando a pausa
+  const [enviando, setEnviando] = useState(0); // já mandado, mas o estoque da tela ainda não atualizou
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const emVoo = useRef(0);
+  const anterior = useRef(estoque);
+
+  // Chegou o estoque novo do servidor: o que estava "enviando" já está nele
+  useEffect(() => {
+    const mudou = estoque - anterior.current;
+    anterior.current = estoque;
+    setEnviando((e) => (emVoo.current ? e - mudou : 0));
+  }, [estoque]);
+
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  // Os botões nunca travam: cada pausa vira uma movimentação, mesmo com outra ainda a caminho
+  const enviar = async (d: number) => {
+    emVoo.current += 1;
+    setEnviando((e) => e + d);
+    try {
+      await api.registrar({
+        produto_id: produtoId,
+        tipo: d > 0 ? "entrada" : "retirada",
+        quantidade: Math.abs(d),
+        pessoa_id: usuario.id,
+        motivo: `Ajuste rápido na composição de ${proprio}`,
+      });
+      toast.success(`${d > 0 ? "Entrada" : "Retirada"} de ${fmtNum(Math.abs(d))} ${unidade}`, { description: nome });
+    } catch (e) {
+      toast.error((e as Error).message);
+      setEnviando((x) => x - d);
+    } finally {
+      emVoo.current -= 1;
+      qc.invalidateQueries();
+    }
+  };
+
+  // Soma num ref: cliques muito rápidos (antes de a tela redesenhar) contam todos
+  const acumulado = useRef(0);
+  const mudar = (passo: number) => {
+    acumulado.current += passo;
+    setAEnviar(acumulado.current);
+    clearTimeout(timer.current);
+    if (acumulado.current !== 0)
+      timer.current = setTimeout(() => {
+        const d = acumulado.current;
+        acumulado.current = 0;
+        setAEnviar(0);
+        enviar(d);
+      }, 900);
+  };
+
+  const pendente = aEnviar + enviando;
+  const mostrado = estoque + pendente;
+  const BOTAO =
+    "grid size-6 cursor-pointer place-items-center rounded-md border border-line text-muted transition-colors hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line disabled:hover:text-muted [&_svg]:size-3.5";
+
+  return (
+    <div className="inline-flex items-center justify-end gap-1.5">
+      <button type="button" className={BOTAO} aria-label={`Tirar 1 ${unidade} de ${nome}`} disabled={desativado || mostrado <= 0} onClick={() => mudar(-1)}>
+        <Minus />
+      </button>
+      <span
+        className={cn("tabular min-w-8 text-center", pendente ? "font-medium text-primary" : "text-muted")}
+        title={pendente ? `${pendente > 0 ? "+" : ""}${fmtNum(pendente)} sendo registrado` : undefined}
+        aria-live="polite"
+      >
+        {fmtNum(mostrado)}
+      </span>
+      <button type="button" className={BOTAO} aria-label={`Adicionar 1 ${unidade} de ${nome}`} disabled={desativado} onClick={() => mudar(1)}>
+        <Plus />
+      </button>
+    </div>
   );
 }
