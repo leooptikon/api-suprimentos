@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="caixa" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a3e45"/><stop offset=".55" stop-color="#1c1e22"/><stop offset="1" stop-color="#0f1013"/>
+    </linearGradient>
+    <linearGradient id="tampa" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a4f57"/><stop offset="1" stop-color="#16181b"/>
+    </linearGradient>
+    <linearGradient id="cilindro" x1="0" x2="1">
+      <stop offset="0" stop-color="#0c0d0f"/><stop offset=".38" stop-color="#3b3f46"/><stop offset=".55" stop-color="#25282d"/><stop offset="1" stop-color="#0c0d0f"/>
+    </linearGradient>
+    <linearGradient id="base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2f3238"/><stop offset="1" stop-color="#0e0f11"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(0 5)">
+
+  <!-- cabo saindo pela lateral -->
+  <path d="M55.5 24.5q4 5 2 11T42 44" fill="none" stroke="#0e0f11" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M55.5 24.5q4 5 2 11T42 44" fill="none" stroke="#454a52" stroke-width=".7" stroke-linecap="round" opacity=".7"/>
+  <rect x="51.5" y="19" width="6" height="7.5" rx="1.6" fill="#1e2024" stroke="#4a4f57" stroke-width=".6"/>
+  <path d="M53 21h3M53 23h3M53 25h3" stroke="#3a3e45" stroke-width=".6"/>
+
+  <!-- caixa de cima -->
+  <rect x="6" y="8" width="47" height="26" rx="6.5" fill="url(#caixa)" stroke="#4d525b" stroke-width=".7"/>
+  <rect x="10" y="10.5" width="39" height="12" rx="4" fill="#202227" stroke="#3a3e45" stroke-width=".6"/>
+  <!-- tampa redonda -->
+  <ellipse cx="29.5" cy="12.5" rx="10" ry="6.4" fill="url(#tampa)" stroke="#5a6069" stroke-width=".7"/>
+  <ellipse cx="29.5" cy="11.8" rx="7.6" ry="4.4" fill="none" stroke="#2a2d32" stroke-width=".7"/>
+
+  <!-- placa da frente com a marca -->
+  <path d="M16.6 28.6h25.8l-1.1 9.4H17.7z" fill="#141518" stroke="#3f434b" stroke-width=".6"/>
+  <text x="29.5" y="35.4" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="5.9" fill="#fff" letter-spacing=".2" textLength="22.6" lengthAdjust="spacingAndGlyphs">OPTIKON</text>
+  <g fill="#555a63"><circle cx="18.2" cy="30" r=".5"/><circle cx="40.8" cy="30" r=".5"/></g>
+
+  <!-- lidar (cilindro) -->
+  <rect x="20" y="38" width="19" height="5.2" fill="url(#cilindro)"/>
+  <path d="M20 40.6h19" stroke="#0a0b0d" stroke-width=".7" opacity=".9"/>
+  <ellipse cx="29.5" cy="44" rx="11" ry="3.9" fill="url(#base)" stroke="#4d525b" stroke-width=".7"/>
+  <ellipse cx="29.5" cy="44.3" rx="6.8" ry="2.1" fill="none" stroke="#2c2f35" stroke-width=".7"/>
+  </g>
+</svg>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useInvalidar } from "../components/acoes";
+import { IconeProprio, temIcone } from "../components/IconeProprio";
 import { useAuth } from "../components/auth";
 import { CabecalhoPagina } from "../components/Layout";
 import { MontarModal, ProprioModal, UnidadeModal } from "../components/proprios";
@@ -140,9 +141,15 @@ function ListaProprios({ aoCriar }: { aoCriar: () => void }) {
                   {p.tipo ?? "Sem tipo"} · <span className="tabular">{p.prefixo}-0001</span>
                 </p>
               </div>
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-primary/25 bg-primary-soft text-primary">
-                <Factory className="size-5" />
-              </span>
+              {temIcone(p.prefixo) ? (
+                <span className="grid size-12 shrink-0 place-items-center rounded-xl border border-line bg-surface-2 p-1">
+                  <IconeProprio prefixo={p.prefixo} />
+                </span>
+              ) : (
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-primary/25 bg-primary-soft text-primary">
+                  <Factory className="size-5" />
+                </span>
+              )}
             </div>
             <div className="mt-5">
               <Capacidade p={p} />
@@ -369,6 +376,11 @@ export function ProprioDetalhePagina() {
         }
         titulo={
           <span className="flex flex-wrap items-center gap-3">
+            {temIcone(p.prefixo) && (
+              <span className="grid size-14 shrink-0 place-items-center rounded-2xl border border-line bg-surface-2 p-1.5">
+                <IconeProprio prefixo={p.prefixo} />
+              </span>
+            )}
             {p.nome}
             {p.arquivado && <Badge>Arquivado</Badge>}
           </span>
