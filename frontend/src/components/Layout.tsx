@@ -28,6 +28,7 @@ import { fmtNum, SENHA_MIN } from "../lib/format";
 import { toast } from "sonner";
 import { useAcoes } from "./acoes";
 import { useAuth } from "./auth";
+import { LogoTrace } from "./LogoTrace";
 import { Avatar, Badge, Botao, Campo, cn, Input, Kbd, Modal, StatusBadge } from "./ui";
 
 const NAV = [
@@ -52,10 +53,7 @@ function Logo() {
           <path d="M3.5 7.25 12 12l8.5-4.75M12 12v9.5" opacity=".55" />
         </svg>
       </span>
-      <div className="leading-tight">
-        <p className="text-sm font-semibold tracking-tight">Suprimentos</p>
-        <p className="font-mono text-[10px] tracking-wider text-subtle uppercase">Estoque · v0.1</p>
-      </div>
+      <LogoTrace className="h-[18px] w-auto text-fg" />
     </div>
   );
 }
