@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="frente" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4b4f57"/><stop offset="1" stop-color="#2a2d32"/>
+    </linearGradient>
+    <linearGradient id="topo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#666b74"/><stop offset="1" stop-color="#474b52"/>
+    </linearGradient>
+    <linearGradient id="gps" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5d626b"/><stop offset="1" stop-color="#25282d"/>
+    </linearGradient>
+  </defs>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <!-- cabo da antena (passa por trás) -->
+    <path d="M25.5 19.5q-8 .5-14 4.5" fill="none" stroke="#141518" stroke-width="1.6"/>
+
+    <!-- antena GPS em cima -->
+    <rect x="27" y="17" width="8" height="7" rx="1.4" fill="#1f2125" stroke="#5a6069" stroke-width=".6"/>
+    <path d="M22.6 18.4l1.6-6.2q.4-1.4 1.9-1.4h9.8q1.5 0 1.9 1.4l1.6 6.2z" fill="url(#gps)" stroke="#6b717b" stroke-width=".7"/>
+
+    <!-- cabo enrolado saindo do prensa-cabo -->
+    <path d="M4.5 38q-2 9 4 13.5 6 4 11 .5 3-2.4.5-5-3.4-2.6-8.5 1-4 3.6-1 8" fill="none" stroke="#141518" stroke-width="1.8"/>
+    <path d="M4.5 38q-2 9 4 13.5 6 4 11 .5 3-2.4.5-5-3.4-2.6-8.5 1-4 3.6-1 8" fill="none" stroke="#4a4f57" stroke-width=".5" opacity=".8"/>
+    <!-- prensa-cabo na lateral -->
+    <rect x="2.4" y="29.5" width="5.4" height="9" rx="1.6" fill="#1f2125" stroke="#5a6069" stroke-width=".6"/>
+    <path d="M3.4 32h3.4M3.4 34h3.4M3.4 36h3.4" stroke="#3a3e45" stroke-width=".6"/>
+
+    <!-- caixa impressa em 3D -->
+    <rect x="7" y="22.5" width="50" height="6" rx="2.6" fill="url(#topo)" stroke="#6b717b" stroke-width=".6"/>
+    <rect x="6.5" y="25.5" width="51" height="22" rx="5" fill="url(#frente)" stroke="#62676f" stroke-width=".7"/>
+    <!-- linhas de camada da impressão -->
+    <path d="M9 30.5h46M9 44h46" stroke="#3c4047" stroke-width=".5" opacity=".8"/>
+
+    <!-- marca -->
+    <text x="32" y="40.2" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="8.4" fill="#fff" textLength="38" lengthAdjust="spacingAndGlyphs">OPTIKON</text>
+  </g>
+</svg>

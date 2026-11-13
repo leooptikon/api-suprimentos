@@ -1,10 +1,11 @@
 import cube from "../assets/icones/cube.svg";
 import olie from "../assets/icones/olie.svg";
+import pulse from "../assets/icones/pulse.svg";
 import sense from "../assets/icones/sense.svg";
 import { cn } from "./ui";
 
 // Desenhos dos produtos da Optikon, pelo prefixo do nº de série (SENSE-0001, CUBE-0001…)
-const ICONES: Record<string, string> = { OLIE: olie, CUBE: cube, SENSE: sense };
+const ICONES: Record<string, string> = { OLIE: olie, PULSE: pulse, CUBE: cube, SENSE: sense };
 
 export function temIcone(prefixo: string) {
   return prefixo in ICONES;
