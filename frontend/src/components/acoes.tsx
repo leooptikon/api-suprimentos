@@ -7,7 +7,7 @@ import { api, type Movimentacao, type Produto, type ProdutoForm, type TipoMov } 
 import { MiniaturaProduto } from "../lib/categorias";
 import { fmtNum } from "../lib/format";
 import { useAuth } from "./auth";
-import { Botao, Campo, cn, Input, Modal, Select, Textarea } from "./ui";
+import { Botao, Campo, cn, Input, InputSugestoes, Modal, Select, Textarea } from "./ui";
 
 /* ---------- Contexto: qualquer tela pode abrir os modais ---------- */
 interface Acoes {
@@ -479,12 +479,14 @@ function ProdutoModal({ produto, aoFechar }: { produto?: Produto; aoFechar: () =
         </Campo>
         <Campo rotulo="Categoria" className="sm:col-span-2">
           {(id) => (
-            <>
-              <Input id={id} list="lista-categorias" autoComplete="off" value={f.categoria ?? ""} onChange={(e) => set("categoria", e.target.value)} placeholder="Ex.: Energia" maxLength={80} />
-              <datalist id="lista-categorias">
-                {categorias.data?.map((c) => <option key={c} value={c} />)}
-              </datalist>
-            </>
+            <InputSugestoes
+              id={id}
+              sugestoes={categorias.data ?? []}
+              value={f.categoria ?? ""}
+              onChange={(e) => set("categoria", e.target.value)}
+              placeholder="Ex.: Energia"
+              maxLength={80}
+            />
           )}
         </Campo>
 
@@ -518,12 +520,14 @@ function ProdutoModal({ produto, aoFechar }: { produto?: Produto; aoFechar: () =
 
         <Campo rotulo="Localização" className="sm:col-span-3">
           {(id) => (
-            <>
-              <Input id={id} list="lista-locais" autoComplete="off" value={f.localizacao ?? ""} onChange={(e) => set("localizacao", e.target.value)} placeholder="Ex.: Armário A" maxLength={120} />
-              <datalist id="lista-locais">
-                {locais.data?.map((l) => <option key={l} value={l} />)}
-              </datalist>
-            </>
+            <InputSugestoes
+              id={id}
+              sugestoes={locais.data ?? []}
+              value={f.localizacao ?? ""}
+              onChange={(e) => set("localizacao", e.target.value)}
+              placeholder="Ex.: Armário A"
+              maxLength={120}
+            />
           )}
         </Campo>
         {!editando && (

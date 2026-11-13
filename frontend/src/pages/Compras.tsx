@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { BuscaProduto, useInvalidar } from "../components/acoes";
 import { useAuth } from "../components/auth";
 import { CabecalhoPagina } from "../components/Layout";
-import { Badge, Botao, Campo, Card, cn, Esqueleto, Input, Modal, Select, StatusBadge, Vazio } from "../components/ui";
+import { Badge, Botao, Campo, Card, cn, Esqueleto, Input, InputSugestoes, Modal, Select, StatusBadge, Vazio } from "../components/ui";
 import { api, type ItemCompra, type Produto } from "../lib/api";
 import { EtiquetaCategoria, MiniaturaProduto } from "../lib/categorias";
 import { copiar } from "../lib/copiar";
@@ -442,20 +442,14 @@ function AdicionarCompraModal({
             </Campo>
             <Campo rotulo="Motivo" dica="Opcional. Ex.: o projeto que vai precisar.">
               {(id) => (
-                <>
-                  <Input
-                    id={id}
-                    list="motivos-compra"
-                    autoComplete="off"
-                    value={motivo}
-                    onChange={(ev) => setMotivo(ev.target.value)}
-                    placeholder="Ex.: 21.40 - TM ENGENHARIA"
-                    maxLength={160}
-                  />
-                  <datalist id="motivos-compra">
-                    {projetos.data?.filter((p) => p.no_onedrive).map((p) => <option key={p.id} value={p.nome} />)}
-                  </datalist>
-                </>
+                <InputSugestoes
+                  id={id}
+                  sugestoes={projetos.data?.filter((p) => p.no_onedrive).map((p) => p.nome) ?? []}
+                  value={motivo}
+                  onChange={(ev) => setMotivo(ev.target.value)}
+                  placeholder="Ex.: 21.40 - TM ENGENHARIA"
+                  maxLength={160}
+                />
               )}
             </Campo>
           </>

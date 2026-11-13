@@ -9,7 +9,7 @@ import { fmtDataHora, fmtNum } from "../lib/format";
 import { BadgeStatusUnidade, ORDEM_STATUS, STATUS_UNIDADE, sugerirPrefixo } from "../lib/proprios";
 import { useInvalidar } from "./acoes";
 import { useAuth } from "./auth";
-import { Botao, Campo, cn, Esqueleto, Input, Modal, Select, Textarea } from "./ui";
+import { Botao, Campo, cn, Esqueleto, Input, InputSugestoes, Modal, Select, Textarea } from "./ui";
 
 const numero = (v: string) => {
   const n = Number(v.replace(",", "."));
@@ -145,21 +145,14 @@ export function ProprioModal({ proprio, aoFechar }: { proprio?: ProprioDetalhe; 
           </Campo>
           <Campo rotulo="Tipo" className="sm:col-span-2">
             {(id) => (
-              <>
-                {/* autoComplete off: sem o histórico do navegador misturado às sugestões */}
-                <Input
-                  id={id}
-                  list="tipos-proprio"
-                  autoComplete="off"
-                  value={tipo}
-                  onChange={(e) => setTipo(e.target.value)}
-                  placeholder="Ex.: Robô, Sensor"
-                  maxLength={60}
-                />
-                <datalist id="tipos-proprio">
-                  {tipos.data?.map((t) => <option key={t} value={t} />)}
-                </datalist>
-              </>
+              <InputSugestoes
+                id={id}
+                sugestoes={tipos.data ?? []}
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value)}
+                placeholder="Ex.: Robô, Sensor"
+                maxLength={60}
+              />
             )}
           </Campo>
           <Campo rotulo="Descrição" className="sm:col-span-4">

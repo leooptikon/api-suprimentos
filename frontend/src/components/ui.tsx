@@ -82,6 +82,36 @@ export function Textarea({ className, ...rest }: TextareaHTMLAttributes<HTMLText
 
 type Opcao = { valor: string; rotulo: ReactNode; desativado: boolean };
 
+const LISTA =
+  "fixed inset-auto m-0 max-h-[264px] max-w-[calc(100vw-16px)] overflow-y-auto rounded-xl border border-line-strong bg-surface p-1 text-sm text-fg shadow-[0_12px_32px_-12px_rgb(0_0_0/0.55)]";
+const ITEM = "flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5";
+
+/** Cola a lista suspensa no campo: abaixo dele, ou acima se não couber na tela. */
+function colarNoCampo(el: HTMLElement | null, campo: HTMLElement | null, itens: number) {
+  if (!el || !campo) return;
+  const r = campo.getBoundingClientRect();
+  const largura = Math.max(r.width, 176);
+  const abaixo = window.innerHeight - r.bottom;
+  const altura = Math.min(264, itens * 34 + 10);
+  el.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - largura - 8))}px`;
+  el.style.minWidth = `${largura}px`;
+  if (abaixo < altura + 8 && r.top > abaixo) {
+    el.style.top = "auto";
+    el.style.bottom = `${window.innerHeight - r.top + 4}px`;
+  } else {
+    el.style.bottom = "auto";
+    el.style.top = `${r.bottom + 4}px`;
+  }
+}
+
+/** Rola só dentro da lista até o item ativo (scrollIntoView rolaria também o modal/página). */
+function mostrarItem(el: HTMLElement | null, indice: number) {
+  const li = el?.querySelector<HTMLElement>(`[data-indice="${indice}"]`);
+  if (!el || !li) return;
+  if (li.offsetTop < el.scrollTop) el.scrollTop = li.offsetTop - 4;
+  else if (li.offsetTop + li.offsetHeight > el.scrollTop + el.clientHeight) el.scrollTop = li.offsetTop + li.offsetHeight - el.clientHeight + 4;
+}
+
 /**
  * Lista suspensa no estilo do site (a nativa do navegador abre cinza e quadrada).
  * Mesma forma de usar do <select>: <Select value onChange={(e) => e.target.value}><option …/></Select>.
@@ -119,24 +149,7 @@ export function Select({
     if (o.valor !== atual) onChange?.({ target: { value: o.valor }, currentTarget: { value: o.valor } } as ChangeEvent<HTMLSelectElement>);
   };
 
-  // Cola a lista no campo (abaixo, ou acima se não couber)
-  const posicionar = () => {
-    const el = lista.current;
-    if (!el || !botao.current) return;
-    const r = botao.current.getBoundingClientRect();
-    const largura = Math.max(r.width, 176);
-    const abaixo = window.innerHeight - r.bottom;
-    const altura = Math.min(264, opcoes.length * 34 + 10);
-    el.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - largura - 8))}px`;
-    el.style.minWidth = `${largura}px`;
-    if (abaixo < altura + 8 && r.top > abaixo) {
-      el.style.top = "auto";
-      el.style.bottom = `${window.innerHeight - r.top + 4}px`;
-    } else {
-      el.style.bottom = "auto";
-      el.style.top = `${r.bottom + 4}px`;
-    }
-  };
+  const posicionar = () => colarNoCampo(lista.current, botao.current, opcoes.length);
 
   useEffect(() => {
     const el = lista.current;
@@ -168,11 +181,7 @@ export function Select({
   });
 
   useEffect(() => {
-    const el = lista.current;
-    const li = el?.querySelector<HTMLElement>(`[data-indice="${ativo}"]`);
-    if (!aberto || !el || !li) return;
-    if (li.offsetTop < el.scrollTop) el.scrollTop = li.offsetTop - 4;
-    else if (li.offsetTop + li.offsetHeight > el.scrollTop + el.clientHeight) el.scrollTop = li.offsetTop + li.offsetHeight - el.clientHeight + 4;
+    if (aberto) mostrarItem(lista.current, ativo);
   }, [aberto, ativo]);
 
   const mover = (passo: number) => {
@@ -244,7 +253,7 @@ export function Select({
         id={listaId}
         role="listbox"
         popover="auto"
-        className="fixed inset-auto m-0 max-h-[264px] max-w-[calc(100vw-16px)] overflow-y-auto rounded-xl border border-line-strong bg-surface p-1 text-sm text-fg shadow-[0_12px_32px_-12px_rgb(0_0_0/0.55)]"
+        className={LISTA}
       >
         {opcoes.map((o, i) => {
           const marcada = o.valor === atual;
@@ -260,7 +269,7 @@ export function Select({
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => escolher(o)}
               className={cn(
-                "flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5",
+                ITEM,
                 i === ativo && "bg-surface-2",
                 marcada ? "text-primary" : "text-fg",
                 o.desativado && "cursor-not-allowed opacity-50",
@@ -271,6 +280,133 @@ export function Select({
             </li>
           );
         })}
+      </ul>
+    </>
+  );
+}
+
+const semAcento = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/**
+ * Campo de texto livre com sugestões no estilo do site (no lugar do <datalist>, que abre cinza e quadrado).
+ * Uso igual ao <Input>; onChange recebe e.target.value também quando escolhe uma sugestão.
+ */
+export function InputSugestoes({
+  sugestoes,
+  value,
+  onChange,
+  onKeyDown,
+  onFocus,
+  onBlur,
+  className,
+  ...rest
+}: Omit<InputHTMLAttributes<HTMLInputElement>, "list" | "value"> & { sugestoes: string[]; value: string }) {
+  const listaId = useId();
+  const campo = useRef<HTMLInputElement>(null);
+  const lista = useRef<HTMLUListElement>(null);
+  const [focado, setFocado] = useState(false);
+  const [fechada, setFechada] = useState(false); // Esc ou escolheu: só reabre ao digitar
+  const [ativo, setAtivo] = useState(-1);
+
+  const termo = semAcento(value.trim());
+  const filtradas = sugestoes.filter((t) => semAcento(t).includes(termo) && t !== value);
+  const aberto = focado && !fechada && filtradas.length > 0;
+
+  useEffect(() => {
+    const el = lista.current;
+    if (!el) return;
+    if (aberto && !el.matches(":popover-open")) {
+      colarNoCampo(el, campo.current, filtradas.length);
+      el.showPopover();
+    } else if (!aberto && el.matches(":popover-open")) {
+      el.hidePopover();
+    }
+  });
+
+  useEffect(() => {
+    if (!aberto) return;
+    const seguir = (e: Event) => e.target !== lista.current && colarNoCampo(lista.current, campo.current, filtradas.length);
+    window.addEventListener("scroll", seguir, true);
+    window.addEventListener("resize", seguir);
+    return () => {
+      window.removeEventListener("scroll", seguir, true);
+      window.removeEventListener("resize", seguir);
+    };
+  });
+
+  useEffect(() => {
+    if (aberto) mostrarItem(lista.current, ativo);
+  }, [aberto, ativo]);
+
+  const escolher = (t: string) => {
+    onChange?.({ target: { value: t }, currentTarget: { value: t } } as ChangeEvent<HTMLInputElement>);
+    setFechada(true);
+    setAtivo(-1);
+  };
+
+  const teclas = (e: KeyboardEvent<HTMLInputElement>) => {
+    onKeyDown?.(e);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!aberto) return setFechada(false);
+      const passo = e.key === "ArrowDown" ? 1 : -1;
+      setAtivo((i) => Math.min(filtradas.length - 1, Math.max(0, i + passo)));
+    } else if (e.key === "Enter" && aberto && filtradas[ativo] !== undefined) {
+      e.preventDefault(); // escolhe a sugestão em vez de enviar o formulário
+      escolher(filtradas[ativo]);
+    } else if (e.key === "Escape" && aberto) {
+      e.preventDefault(); // fecha só a lista, não o modal
+      e.stopPropagation();
+      setFechada(true);
+    }
+  };
+
+  return (
+    <>
+      <Input
+        ref={campo}
+        {...rest}
+        value={value}
+        autoComplete="off"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={aberto}
+        aria-controls={listaId}
+        aria-activedescendant={aberto && ativo >= 0 ? `${listaId}-${ativo}` : undefined}
+        className={className}
+        onChange={(e) => {
+          onChange?.(e);
+          setFechada(false);
+          setAtivo(-1);
+        }}
+        onKeyDown={teclas}
+        onFocus={(e) => {
+          setFocado(true);
+          onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setFocado(false);
+          setFechada(false);
+          setAtivo(-1);
+          onBlur?.(e);
+        }}
+      />
+      <ul ref={lista} id={listaId} role="listbox" popover="manual" className={LISTA}>
+        {filtradas.map((t, i) => (
+          <li
+            key={t}
+            id={`${listaId}-${i}`}
+            data-indice={i}
+            role="option"
+            aria-selected={i === ativo}
+            onMouseEnter={() => setAtivo(i)}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => escolher(t)}
+            className={cn(ITEM, "truncate", i === ativo && "bg-surface-2")}
+          >
+            {t}
+          </li>
+        ))}
       </ul>
     </>
   );
