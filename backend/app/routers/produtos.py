@@ -70,13 +70,11 @@ SEM_LOCAL = "__sem__"
 @router.get("/locais", response_model=list[str])
 def locais(db: Session = Depends(get_db)):
     """Locais usados pelos produtos ativos (para o filtro e para sugerir ao cadastrar)."""
-    stmt = (
-        select(models.Produto.localizacao)
-        .where(models.Produto.localizacao.is_not(None), models.Produto.arquivado.is_(False))
-        .distinct()
-        .order_by(func.lower(models.Produto.localizacao))
+    stmt = select(models.Produto.localizacao).where(
+        models.Produto.localizacao.is_not(None), models.Produto.arquivado.is_(False)
     )
-    return list(db.scalars(stmt))
+    # Ordena aqui: no Postgres, DISTINCT não aceita ORDER BY lower(...) fora das colunas do SELECT
+    return sorted(set(db.scalars(stmt)), key=str.lower)
 
 
 @router.get("/categorias", response_model=list[str])

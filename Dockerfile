@@ -18,6 +18,7 @@ COPY backend/requirements.txt backend/requirements.txt
 RUN pip install -r backend/requirements.txt
 
 COPY backend/app backend/app
+COPY backend/scripts backend/scripts
 # O backend procura o site em <raiz>/frontend/dist
 COPY --from=site /src/frontend/dist frontend/dist
 

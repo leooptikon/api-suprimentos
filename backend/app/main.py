@@ -50,7 +50,7 @@ def _migrar():
         if "montagem_id" not in movs:
             con.execute(text("ALTER TABLE movimentacoes ADD COLUMN montagem_id INTEGER REFERENCES montagens(id)"))
         if "estornada" not in movs:
-            con.execute(text("ALTER TABLE movimentacoes ADD COLUMN estornada BOOLEAN NOT NULL DEFAULT 0"))
+            con.execute(text("ALTER TABLE movimentacoes ADD COLUMN estornada BOOLEAN NOT NULL DEFAULT FALSE"))
         # Projetos (pastas do OneDrive) no lugar do "local" das unidades
         for tabela in ("unidades", "eventos_unidade"):
             if "projeto_id" not in {c["name"] for c in insp.get_columns(tabela)}:

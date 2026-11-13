@@ -23,11 +23,31 @@ _carregar_env()
 DATA_DIR = Path(os.getenv("SUPRIMENTOS_DATA_DIR", Path(__file__).resolve().parent.parent / "data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DATA_DIR / 'estoque.db'}")
+def _url_do_banco() -> str:
+    """DATABASE_URL (ex.: Postgres do Supabase) ou, sem ela, o SQLite local em data/estoque.db."""
+    url = os.getenv("DATABASE_URL", "").strip()
+    if not url:
+        return f"sqlite:///{DATA_DIR / 'estoque.db'}"
+    # O Supabase mostra "postgresql://…"; o SQLAlchemy precisa saber que o driver é o psycopg 3
+    for prefixo in ("postgres://", "postgresql://"):
+        if url.startswith(prefixo):
+            return "postgresql+psycopg://" + url[len(prefixo):]
+    return url
+
+
+DATABASE_URL = _url_do_banco()
+POSTGRES = DATABASE_URL.startswith("postgresql")
 
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {},
+    connect_args=(
+        # prepare_threshold=None: o pooler do Supabase (porta 6543) não aceita prepared statements
+        {"prepare_threshold": None, "connect_timeout": 10}
+        if POSTGRES
+        else {"check_same_thread": False}
+    ),
+    # Banco na nuvem: testa a conexão antes de usar (o pooler derruba conexões paradas) e usa poucas conexões
+    **({"pool_pre_ping": True, "pool_size": 5, "max_overflow": 5, "pool_recycle": 1800} if POSTGRES else {}),
 )
 
 

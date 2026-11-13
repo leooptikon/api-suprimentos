@@ -38,10 +38,9 @@ def _sugeridos(db: Session) -> dict[int, list[schemas.ProprioResumo]]:
         .join(models.ProdutoProprio, models.ProdutoProprio.id == models.Componente.proprio_id)
         .where(models.ProdutoProprio.arquivado.is_(False))
         .distinct()
-        .order_by(func.lower(models.ProdutoProprio.nome))
     )
     mapa: dict[int, list[schemas.ProprioResumo]] = {}
-    for fid, pid, nome in linhas:
+    for fid, pid, nome in sorted(linhas, key=lambda linha: linha.nome.lower()):
         mapa.setdefault(fid, []).append(schemas.ProprioResumo(id=pid, nome=nome))
     return mapa
 

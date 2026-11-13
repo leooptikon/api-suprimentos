@@ -49,7 +49,7 @@ docker compose up -d --build
 ```
 
 - Acesso: `http://<ip-do-servidor>:8010` (porta publicada pelo Docker).
-- O banco e as fotos ficam em `backend/data` no servidor (volume), então atualizar ou recriar o container não apaga nada.
+- O banco (SQLite, se não houver `DATABASE_URL`) e as fotos ficam em `backend/data` no servidor (volume), então atualizar ou recriar o container não apaga nada.
 - As chaves (Mercado Livre e Microsoft) vêm de `backend/.env`, que fica só no servidor (fora do git e da imagem).
 - `restart: always`: volta sozinho se cair e quando o notebook reiniciar.
 - Roda com **1 worker** (os agendadores do Mercado Livre e do OneDrive ficam dentro do processo).
@@ -61,6 +61,29 @@ docker compose up -d --build
 ```
 
 Logs: `docker compose logs -f` · Parar: `docker compose down` (o banco continua em `backend/data`).
+
+## Banco no Supabase (Postgres)
+
+Sem `DATABASE_URL` o site usa o SQLite em `backend/data/estoque.db`. Para usar o Supabase:
+
+1. No Supabase: **Connect** → **Connection string** → **Session pooler** (funciona em redes só IPv4)
+   e copie a URI `postgresql://postgres.<projeto>:<senha>@aws-…pooler.supabase.com:5432/postgres`.
+2. No servidor, coloque no `backend/.env` (sem aspas, com a senha do banco no lugar de `[YOUR-PASSWORD]`):
+   `DATABASE_URL=postgresql://…`
+3. Copie os dados do SQLite para o Supabase com o site parado (assim nada cadastrado durante a troca se perde).
+   Só funciona com o banco do Supabase vazio; o SQLite não é alterado e fica como backup:
+
+   ```bash
+   docker compose build
+   docker compose stop
+   docker compose run --rm suprimentos python scripts/copiar_para_postgres.py
+   docker compose up -d
+   ```
+
+Fora do Docker: `cd backend && .venv/bin/python scripts/copiar_para_postgres.py`.
+
+As **fotos** dos produtos continuam em `backend/data/fotos` no servidor.
+Em máquinas de desenvolvimento, não use a mesma `DATABASE_URL` da produção (tudo o que for testado iria para o banco real).
 
 ## Rodando em produção sem Docker (um único processo)
 
@@ -77,7 +100,7 @@ Se estiver atrás de HTTPS, defina `COOKIE_SEGURO=1`.
 | Variável | Padrão | Para quê |
 |---|---|---|
 | `SUPRIMENTOS_DATA_DIR` | `backend/data` | Pasta do banco SQLite |
-| `DATABASE_URL` | SQLite na pasta acima | Trocar por PostgreSQL no futuro |
+| `DATABASE_URL` | SQLite na pasta acima | Postgres (ex.: Supabase). Veja “Banco no Supabase” |
 | `TZ_ESCRITORIO` | `America/Sao_Paulo` | Fuso usado no dashboard e nas exportações |
 | `SESSAO_DIAS` | `14` | Duração do login |
 | `COOKIE_SEGURO` | `0` | `1` quando servido via HTTPS |

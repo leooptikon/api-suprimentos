@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, Float, ForeignKey, Integer, String, Table, Text, TypeDecorator, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, Column, DateTime, Float, ForeignKey, Integer, String, Table, Text, TypeDecorator, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -306,7 +306,7 @@ class IntegracaoML(Base):
     access_token: Mapped[str | None] = mapped_column(String(255))
     refresh_token: Mapped[str | None] = mapped_column(String(255))
     expira_em: Mapped[datetime | None] = mapped_column(UTCDateTime)
-    ml_user_id: Mapped[int | None] = mapped_column(Integer)
+    ml_user_id: Mapped[int | None] = mapped_column(BigInteger)  # ids do ML passam de 2^31
     nickname: Mapped[str | None] = mapped_column(String(120))
     conectado_em: Mapped[datetime | None] = mapped_column(UTCDateTime)
     # Autorização em andamento (OAuth com PKCE)

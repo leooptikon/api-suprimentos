@@ -275,13 +275,9 @@ def criar(dados: schemas.ProprioIn, db: Session = Depends(get_db)):
 @router.get("/tipos", response_model=list[str])
 def tipos(db: Session = Depends(get_db)):
     """Tipos já usados nos produtos próprios (sugestões do campo "Tipo" no cadastro)."""
-    stmt = (
-        select(models.ProdutoProprio.tipo)
-        .where(models.ProdutoProprio.tipo.is_not(None))
-        .distinct()
-        .order_by(func.lower(models.ProdutoProprio.tipo))
-    )
-    return list(db.scalars(stmt))
+    stmt = select(models.ProdutoProprio.tipo).where(models.ProdutoProprio.tipo.is_not(None))
+    # Ordena aqui: no Postgres, DISTINCT não aceita ORDER BY lower(...) fora das colunas do SELECT
+    return sorted(set(db.scalars(stmt)), key=str.lower)
 
 
 @router.get("/{proprio_id}", response_model=schemas.ProprioDetalhe)
