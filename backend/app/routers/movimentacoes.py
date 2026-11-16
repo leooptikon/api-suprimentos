@@ -18,6 +18,7 @@ def _query_movs():
         joinedload(models.Movimentacao.produto),
         joinedload(models.Movimentacao.pessoa),
         joinedload(models.Movimentacao.registrado_por),
+        joinedload(models.Movimentacao.projeto),
     )
 
 
@@ -178,9 +179,9 @@ def exportar_movimentacoes(de: date | None = None, ate: date | None = None, db: 
 
     linhas = [
         [m.criado_em.astimezone(FUSO).strftime("%d/%m/%Y %H:%M"), rotulo[m.tipo], m.produto_nome, m.quantidade,
-         m.produto_unidade, m.saldo_apos, m.pessoa_nome, m.motivo, m.registrado_por_nome, situacao(m)]
+         m.produto_unidade, m.saldo_apos, m.pessoa_nome, m.projeto_nome, m.motivo, m.registrado_por_nome, situacao(m)]
         for m in movs
     ]
-    colunas = ["Data", "Tipo", "Produto", "Quantidade", "Unidade", "Saldo após", "Responsável", "Motivo",
+    colunas = ["Data", "Tipo", "Produto", "Quantidade", "Unidade", "Saldo após", "Responsável", "Projeto", "Motivo",
                "Registrado por", "Situação"]
     return download(planilha("Movimentações", colunas, linhas), "movimentacoes")

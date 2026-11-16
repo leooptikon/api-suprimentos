@@ -18,6 +18,16 @@ def _componentes(proprio: models.ProdutoProprio) -> list[schemas.ComponenteOut]:
     itens = []
     for c in proprio.componentes:
         p = c.produto
+        alternativas = [
+            schemas.AlternativaOut(produto_id=a.id, produto_nome=a.nome, produto_unidade=a.unidade, em_estoque=a.quantidade,
+                                   arquivado=a.arquivado)
+            for a in c.alternativas
+        ]
+        # Cada unidade usa UMA das peças (a principal ou uma alternativa, sem misturar):
+        # dá para = o que dá com cada uma, somado
+        fontes = ([] if p.arquivado else [p.quantidade]) + [a.em_estoque for a in alternativas if not a.arquivado]
+        total = sum(fontes)
+        da_para = sum(math.floor(f / c.quantidade + 1e-9) for f in fontes)
         # Folga mínima para 0,1 + 0,2 não virar 0,30000000000000004 e perder uma unidade
         itens.append(
             schemas.ComponenteOut(
@@ -29,14 +39,19 @@ def _componentes(proprio: models.ProdutoProprio) -> list[schemas.ComponenteOut]:
                 produto_arquivado=p.arquivado,
                 quantidade=c.quantidade,
                 em_estoque=p.quantidade,
-                da_para=math.floor(p.quantidade / c.quantidade + 1e-9),
+                alternativas=alternativas,
+                em_estoque_total=total,
+                da_para=da_para,
                 falta_para_mais_um=0,
             )
         )
     if itens:
         proxima = min(i.da_para for i in itens) + 1
         for i in itens:
-            i.falta_para_mais_um = round(max(0.0, i.quantidade * proxima - i.em_estoque), 3)
+            # Quanto da peça principal falta comprar (o que as alternativas já cobrem não conta)
+            com_principal = 0 if i.produto_arquivado else math.floor(i.em_estoque / i.quantidade + 1e-9)
+            com_alternativas = i.da_para - com_principal
+            i.falta_para_mais_um = round(max(0.0, i.quantidade * (proxima - com_alternativas) - i.em_estoque), 3)
     return itens
 
 
@@ -73,7 +88,8 @@ def _out(proprio: models.ProdutoProprio, por_status: dict[str, int], detalhe=Fal
 
 def _query():
     return select(models.ProdutoProprio).options(
-        selectinload(models.ProdutoProprio.componentes).joinedload(models.Componente.produto)
+        selectinload(models.ProdutoProprio.componentes).joinedload(models.Componente.produto),
+        selectinload(models.ProdutoProprio.componentes).selectinload(models.Componente.alternativas),
     )
 
 
@@ -186,6 +202,21 @@ def eventos_unidade(unidade_id: int, db: Session = Depends(get_db)):
     ]
 
 
+def _de_onde_tirar(comp: models.Componente, precisa: float, escolhida: int | None) -> models.Produto:
+    """Qual peça sai do estoque: a escolhida (a principal ou uma alternativa). Só ela é usada, nunca as duas."""
+    if escolhida is None or escolhida == comp.produto_id:
+        produto = comp.produto
+    else:
+        produto = next((a for a in comp.alternativas if a.id == escolhida), None)
+        if produto is None:
+            raise HTTPException(422, f"Essa peça não é alternativa de “{comp.produto.nome}”")
+    if produto.arquivado:
+        raise HTTPException(409, f"A peça “{produto.nome}” está arquivada; restaure-a ou escolha outra")
+    if produto.quantidade + 1e-9 < precisa:
+        raise HTTPException(409, f"{produto.nome}: faltam {services.formatar(precisa - produto.quantidade)} {produto.unidade}")
+    return produto
+
+
 @router.post("/montagens/{montagem_id}/cancelar", status_code=204, dependencies=ADMIN)
 def cancelar_montagem(montagem_id: int, db: Session = Depends(get_db), usuario: models.Pessoa = Depends(usuario_atual)):
     """Devolve as peças ao estoque e apaga as unidades — só enquanto nenhuma saiu para campo."""
@@ -241,8 +272,18 @@ def _aplicar_dados(db: Session, proprio: models.ProdutoProprio, dados: schemas.P
     ids = [c.produto_id for c in dados.componentes]
     if len(ids) != len(set(ids)):
         raise HTTPException(422, "Uma peça aparece duas vezes na composição; some as quantidades numa linha só")
-    existentes = set(db.scalars(select(models.Produto.id).where(models.Produto.id.in_(ids))))
-    if faltando := set(ids) - existentes:
+    alt_ids = [a for c in dados.componentes for a in c.alternativas]
+    for c in dados.componentes:
+        if c.produto_id in c.alternativas:
+            raise HTTPException(422, "Uma peça não pode ser alternativa dela mesma")
+        if len(c.alternativas) != len(set(c.alternativas)):
+            raise HTTPException(422, "A mesma alternativa aparece duas vezes na mesma peça")
+    if set(alt_ids) & set(ids):
+        raise HTTPException(422, "Uma alternativa já é peça da composição; ela seria contada duas vezes")
+    if len(alt_ids) != len(set(alt_ids)):
+        raise HTTPException(422, "A mesma alternativa está em duas peças; ela seria contada duas vezes")
+    produtos = {p.id: p for p in db.scalars(select(models.Produto).where(models.Produto.id.in_(ids + alt_ids)))}
+    if faltando := set(ids + alt_ids) - set(produtos):
         raise HTTPException(404, f"Peça não encontrada: {sorted(faltando)}")
     proprio.nome, proprio.prefixo, proprio.tipo, proprio.descricao = dados.nome, dados.prefixo, dados.tipo, dados.descricao
     # Substitui a composição inteira pela enviada
@@ -253,6 +294,7 @@ def _aplicar_dados(db: Session, proprio: models.ProdutoProprio, dados: schemas.P
     ]
     for comp, novo in zip(proprio.componentes, dados.componentes):
         comp.quantidade = novo.quantidade
+        comp.alternativas = [produtos[a] for a in novo.alternativas]
 
 
 def _salvar(db: Session):
@@ -346,17 +388,12 @@ def montar(
         db.add(montagem)
         db.flush()
         for comp in proprio.componentes:
-            if comp.produto.arquivado:
-                raise HTTPException(409, f"A peça “{comp.produto.nome}” está arquivada; restaure-a ou tire da composição")
+            precisa = round(comp.quantidade * dados.quantidade, 6)
+            produto = _de_onde_tirar(comp, precisa, dados.preferencias.get(comp.produto_id))
             services.aplicar_movimentacao(
                 db,
-                schemas.MovimentacaoIn(
-                    produto_id=comp.produto_id,
-                    tipo="retirada",
-                    quantidade=round(comp.quantidade * dados.quantidade, 6),
-                    pessoa_id=pessoa_id,
-                    motivo=motivo[:255],
-                ),
+                schemas.MovimentacaoIn(produto_id=produto.id, tipo="retirada", quantidade=precisa, pessoa_id=pessoa_id,
+                                       motivo=motivo[:255]),
                 registrado_por=usuario,
                 montagem_id=montagem.id,
             )

@@ -122,6 +122,8 @@ export interface Movimentacao {
   pessoa_id: number | null;
   pessoa_nome: string | null;
   registrado_por_nome: string | null;
+  projeto_id: number | null;
+  projeto_nome: string | null;
   tipo: TipoMov;
   quantidade: number;
   saldo_apos: number;
@@ -138,6 +140,7 @@ export interface MovimentacaoForm {
   quantidade: number;
   pessoa_id: number | null;
   motivo: string | null;
+  projeto_id?: number | null;
 }
 
 export interface Dashboard {
@@ -194,9 +197,19 @@ export interface ComponenteProprio {
   produto_foto_url: string | null;
   produto_arquivado: boolean;
   quantidade: number;
-  em_estoque: number;
+  em_estoque: number; // só da peça principal
+  alternativas: AlternativaComponente[];
+  em_estoque_total: number; // principal + alternativas (é o que conta no "dá para")
   da_para: number;
   falta_para_mais_um: number;
+}
+
+export interface AlternativaComponente {
+  produto_id: number;
+  produto_nome: string;
+  produto_unidade: string;
+  em_estoque: number;
+  arquivado: boolean;
 }
 
 export interface Proprio {
@@ -222,7 +235,7 @@ export interface ProprioForm {
   prefixo: string;
   tipo: string | null;
   descricao: string | null;
-  componentes: { produto_id: number; quantidade: number }[];
+  componentes: { produto_id: number; quantidade: number; alternativas: number[] }[];
 }
 
 export interface Unidade {
@@ -499,7 +512,16 @@ export const api = {
   atualizarProprio: (id: number, d: ProprioForm) => http<ProprioDetalhe>("PUT", `/api/proprios/${id}`, d),
   removerProprio: (id: number) => http<void>("DELETE", `/api/proprios/${id}`),
   restaurarProprio: (id: number) => http<ProprioDetalhe>("POST", `/api/proprios/${id}/restaurar`),
-  montar: (id: number, d: { quantidade: number; pessoa_id: number | null; status_inicial: "em_producao" | "pronto"; observacao: string | null }) =>
+  montar: (
+    id: number,
+    d: {
+      quantidade: number;
+      pessoa_id: number | null;
+      status_inicial: "em_producao" | "pronto";
+      observacao: string | null;
+      preferencias: Record<number, number>; // peça principal → qual usar primeiro
+    },
+  ) =>
     http<{ id: number; quantidade: number; unidades: Unidade[] }>("POST", `/api/proprios/${id}/montar`, d),
   cancelarMontagem: (id: number) => http<void>("POST", `/api/proprios/montagens/${id}/cancelar`),
   unidades: (f: { proprio_id?: number; status?: string; projeto_id?: number; busca?: string } = {}) =>

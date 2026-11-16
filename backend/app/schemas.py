@@ -185,6 +185,7 @@ class MovimentacaoIn(_Base):
     quantidade: float = Field(ge=0, description="Entrada/retirada: quantidade movimentada. Ajuste: novo saldo contado.")
     pessoa_id: int | None = None
     motivo: str | None = Field(default=None, max_length=255)
+    projeto_id: int | None = Field(default=None, description="Opcional, só na retirada: para qual projeto foi")
 
     _limpa = field_validator("motivo", mode="before")(_vazio_para_none)
 
@@ -197,6 +198,8 @@ class MovimentacaoOut(_Base):
     pessoa_id: int | None
     pessoa_nome: str | None
     registrado_por_nome: str | None = None
+    projeto_id: int | None = None
+    projeto_nome: str | None = None
     tipo: str
     quantidade: float
     saldo_apos: float
@@ -293,6 +296,7 @@ StatusUnidade = Literal["em_producao", "pronto", "em_campo", "manutencao", "desa
 class ComponenteIn(BaseModel):
     produto_id: int
     quantidade: float = Field(gt=0)
+    alternativas: list[int] = Field(default_factory=list, max_length=10, description="Peças que podem substituir esta")
 
 
 class ProprioIn(_Base):
@@ -308,6 +312,14 @@ class ProprioIn(_Base):
     )
 
 
+class AlternativaOut(BaseModel):
+    produto_id: int
+    produto_nome: str
+    produto_unidade: str
+    em_estoque: float
+    arquivado: bool
+
+
 class ComponenteOut(BaseModel):
     produto_id: int
     produto_nome: str
@@ -316,7 +328,9 @@ class ComponenteOut(BaseModel):
     produto_foto_url: str | None
     produto_arquivado: bool
     quantidade: float
-    em_estoque: float
+    em_estoque: float  # só da peça principal
+    alternativas: list[AlternativaOut] = []
+    em_estoque_total: float = 0  # principal + alternativas
     da_para: int
     falta_para_mais_um: float
 
@@ -344,6 +358,8 @@ class MontarIn(_Base):
     pessoa_id: int | None = None
     status_inicial: Literal["em_producao", "pronto"] = "em_producao"
     observacao: str | None = Field(default=None, max_length=255)
+    # Peça principal → qual usar nesta montagem (ela ou uma alternativa); só a escolhida sai do estoque
+    preferencias: dict[int, int] = Field(default_factory=dict)
 
     _limpa = field_validator("observacao", mode="before")(_vazio_para_none)
 

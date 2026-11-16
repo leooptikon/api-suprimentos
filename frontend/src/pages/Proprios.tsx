@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, ArrowLeft, Factory, Layers, Minus, Pencil, Plus, Search, ShoppingCart, Undo2, Wrench } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Factory, Layers, Minus, Pencil, Plus, Repeat, Search, ShoppingCart, Undo2, Wrench } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -483,6 +483,18 @@ export function ProprioDetalhePagina() {
                             <span className="truncate">{c.produto_nome}</span>
                             {c.produto_arquivado && <Badge tom="danger">Arquivada</Badge>}
                           </Link>
+                          {c.alternativas.map((a) => (
+                            <Link
+                              key={a.produto_id}
+                              to={`/produtos/${a.produto_id}`}
+                              className="mt-1 ml-11 flex items-center gap-1.5 text-xs text-muted hover:text-primary"
+                              title="Alternativa: pode ir no lugar desta peça na montagem"
+                            >
+                              <Repeat className="size-3 shrink-0 text-subtle" />
+                              <span className="truncate">ou {a.produto_nome}</span>
+                              <span className="tabular shrink-0 text-subtle">· tem {fmtNum(a.em_estoque)}</span>
+                            </Link>
+                          ))}
                         </td>
                         <td className="tabular px-4 py-3 text-right">
                           {fmtNum(c.quantidade)} <span className="text-xs text-subtle">{c.produto_unidade}</span>

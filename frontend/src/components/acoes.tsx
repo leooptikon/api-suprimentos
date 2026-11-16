@@ -185,9 +185,13 @@ function MovimentacaoModal({
   const [pessoaId, setPessoaId] = useState<number | null>(usuario.id);
   const [qtd, setQtd] = useState<string>(tipoInicial === "ajuste" && inicial ? String(inicial.quantidade) : "1");
   const [motivo, setMotivo] = useState("");
+  const [projetoId, setProjetoId] = useState<number | null>(null);
 
   const qtdRef = useRef<HTMLInputElement>(null);
   const pessoas = useQuery({ queryKey: ["pessoas"], queryFn: () => api.pessoas() });
+  // Retirada pode ir para um projeto (opcional): os que estão no OneDrive
+  const projetos = useQuery({ queryKey: ["projetos"], queryFn: api.projetos, enabled: tipo === "retirada" });
+  const opcoesProjeto = (projetos.data ?? []).filter((x) => x.no_onedrive);
   const atual = useQuery({
     queryKey: ["produto", produtoId],
     queryFn: () => api.produto(produtoId!),
@@ -204,7 +208,14 @@ function MovimentacaoModal({
 
   const salvar = useMutation({
     mutationFn: () =>
-      api.registrar({ produto_id: produtoId!, tipo, quantidade: n, pessoa_id: pessoaId, motivo: motivo || null }),
+      api.registrar({
+        produto_id: produtoId!,
+        tipo,
+        quantidade: n,
+        pessoa_id: pessoaId,
+        motivo: motivo || null,
+        projeto_id: tipo === "retirada" ? projetoId : null,
+      }),
     onSuccess: (m) => {
       if (m.tipo === "ajuste") toast.success("Contagem corrigida", { description: `${m.produto_nome} · saldo ${fmtNum(m.saldo_apos)} ${m.produto_unidade}` });
       else oferecerDesfazer(m, invalidar);
@@ -371,6 +382,21 @@ function MovimentacaoModal({
             )}
           </Campo>
         </div>
+
+        {tipo === "retirada" && opcoesProjeto.length > 0 && (
+          <Campo rotulo="Projeto" dica="Opcional. Para quando o item vai para um projeto (ex.: um Mikrotik mandado para a obra).">
+            {(id) => (
+              <Select id={id} value={projetoId ?? ""} onChange={(e) => setProjetoId(e.target.value ? Number(e.target.value) : null)}>
+                <option value="">Nenhum projeto</option>
+                {opcoesProjeto.map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.nome}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Campo>
+        )}
 
         <Campo rotulo={tipo === "retirada" ? "Para que vai usar" : "Observação"}>
           {(id) => (

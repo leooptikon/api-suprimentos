@@ -161,9 +161,12 @@ class Movimentacao(Base):
     estornada: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     # Retiradas feitas por uma montagem de produto próprio
     montagem_id: Mapped[int | None] = mapped_column(ForeignKey("montagens.id"), index=True)
+    # Opcional, na retirada: para qual projeto (pasta do OneDrive) o item foi mandado
+    projeto_id: Mapped[int | None] = mapped_column(ForeignKey("projetos.id", ondelete="SET NULL"))
     criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora, index=True)
 
     produto: Mapped[Produto] = relationship(back_populates="movimentacoes")
+    projeto: Mapped["Projeto | None"] = relationship()
     pessoa: Mapped[Pessoa | None] = relationship(foreign_keys=[pessoa_id])
     registrado_por: Mapped[Pessoa | None] = relationship(foreign_keys=[registrado_por_id])
 
@@ -204,11 +207,21 @@ class Componente(Base):
 
     proprio: Mapped[ProdutoProprio] = relationship(back_populates="componentes")
     produto: Mapped[Produto] = relationship()
+    # Peças que podem substituir esta na montagem (ex.: câmera Intelbras no lugar da Hikvision)
+    alternativas: Mapped[list[Produto]] = relationship(secondary=lambda: componente_alternativas, order_by="Produto.nome")
 
     __table_args__ = (
         UniqueConstraint("proprio_id", "produto_id", name="uq_componente"),
         CheckConstraint("quantidade > 0", name="ck_componente_quantidade"),
     )
+
+
+componente_alternativas = Table(
+    "componente_alternativas",
+    Base.metadata,
+    Column("componente_id", ForeignKey("componentes.id", ondelete="CASCADE"), primary_key=True),
+    Column("produto_id", ForeignKey("produtos.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 class Montagem(Base):

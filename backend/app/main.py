@@ -49,6 +49,8 @@ def _migrar():
             con.execute(text("ALTER TABLE produtos ADD COLUMN foto VARCHAR(80)"))
         if "montagem_id" not in movs:
             con.execute(text("ALTER TABLE movimentacoes ADD COLUMN montagem_id INTEGER REFERENCES montagens(id)"))
+        if "projeto_id" not in movs:
+            con.execute(text("ALTER TABLE movimentacoes ADD COLUMN projeto_id INTEGER REFERENCES projetos(id) ON DELETE SET NULL"))
         if "estornada" not in movs:
             con.execute(text("ALTER TABLE movimentacoes ADD COLUMN estornada BOOLEAN NOT NULL DEFAULT FALSE"))
         # Projetos (pastas do OneDrive) no lugar do "local" das unidades

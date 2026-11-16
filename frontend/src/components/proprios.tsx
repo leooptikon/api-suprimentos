@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Factory, History, Minus, Plus, Search, Trash2, Wrench } from "lucide-react";
+import { Factory, History, Minus, Plus, Repeat, Search, Trash2, Wrench, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -26,7 +26,14 @@ const normalizar = (s: string | null) =>
 interface Linha {
   produto: Produto;
   qtd: string;
+  alternativas: Produto[]; // podem substituir a peça na montagem
 }
+
+// Estoque da peça somando as alternativas (só para mostrar)
+const estoqueLinha = (l: Linha) => l.produto.quantidade + l.alternativas.reduce((s, a) => s + a.quantidade, 0);
+// Cada unidade usa UMA das peças, sem misturar: dá para = o que dá com cada uma, somado
+const daParaLinha = (l: Linha, q: number) =>
+  [l.produto, ...l.alternativas].reduce((s, p) => s + Math.floor(p.quantidade / q + 1e-9), 0);
 
 export function ProprioModal({ proprio, aoFechar }: { proprio?: ProprioDetalhe; aoFechar: () => void }) {
   const invalidar = useInvalidar();
@@ -40,22 +47,37 @@ export function ProprioModal({ proprio, aoFechar }: { proprio?: ProprioDetalhe; 
   const [descricao, setDescricao] = useState(proprio?.descricao ?? "");
   const [linhas, setLinhas] = useState<Linha[] | null>(null);
   const [busca, setBusca] = useState("");
+  const [altBusca, setAltBusca] = useState<{ linha: number; texto: string } | null>(null);
 
   // Monta as linhas iniciais quando a lista de produtos chega (precisamos do saldo atual de cada peça)
   const porId = new Map((produtos.data ?? []).map((p) => [p.id, p]));
   const atuais: Linha[] =
     linhas ??
     (proprio?.componentes ?? [])
-      .map((c) => ({ produto: porId.get(c.produto_id)!, qtd: String(c.quantidade).replace(".", ",") }))
+      .map((c) => ({
+        produto: porId.get(c.produto_id)!,
+        qtd: String(c.quantidade).replace(".", ","),
+        alternativas: c.alternativas.map((a) => porId.get(a.produto_id)).filter((a): a is Produto => !!a),
+      }))
       .filter((l) => l.produto);
-  const usados = new Set(atuais.map((l) => l.produto.id));
+  // Peças já usadas (principais e alternativas): cada uma só pode aparecer uma vez na composição
+  const usados = new Set(atuais.flatMap((l) => [l.produto.id, ...l.alternativas.map((a) => a.id)]));
+  const ta = normalizar(altBusca?.texto.trim() ?? "");
+  const sugestoesAlt = ta
+    ? (produtos.data ?? []).filter((p) => !usados.has(p.id) && (normalizar(p.nome).includes(ta) || normalizar(p.categoria).includes(ta))).slice(0, 6)
+    : [];
+  const mudarLinha = (i: number, nova: Partial<Linha>) => setLinhas(atuais.map((x, j) => (j === i ? { ...x, ...nova } : x)));
+  const addAlternativa = (i: number, p: Produto) => {
+    mudarLinha(i, { alternativas: [...atuais[i]!.alternativas, p] });
+    setAltBusca(null);
+  };
   const t = normalizar(busca.trim());
   const sugestoes = t
     ? (produtos.data ?? []).filter((p) => !usados.has(p.id) && (normalizar(p.nome).includes(t) || normalizar(p.categoria).includes(t))).slice(0, 6)
     : [];
 
   const capacidade = atuais.length
-    ? Math.min(...atuais.map((l) => (numero(l.qtd) > 0 ? Math.floor(l.produto.quantidade / numero(l.qtd) + 1e-9) : Infinity)))
+    ? Math.min(...atuais.map((l) => (numero(l.qtd) > 0 ? daParaLinha(l, numero(l.qtd)) : Infinity)))
     : null;
 
   const salvar = useMutation({
@@ -65,7 +87,7 @@ export function ProprioModal({ proprio, aoFechar }: { proprio?: ProprioDetalhe; 
         prefixo,
         tipo: tipo || null,
         descricao: descricao || null,
-        componentes: atuais.map((l) => ({ produto_id: l.produto.id, quantidade: numero(l.qtd) })),
+        componentes: atuais.map((l) => ({ produto_id: l.produto.id, quantidade: numero(l.qtd), alternativas: l.alternativas.map((a) => a.id) })),
       };
       return proprio ? api.atualizarProprio(proprio.id, d) : api.criarProprio(d);
     },
@@ -164,7 +186,7 @@ export function ProprioModal({ proprio, aoFechar }: { proprio?: ProprioDetalhe; 
           <div className="mb-2 flex items-end justify-between gap-3">
             <div>
               <p className="text-sm font-medium">Composição</p>
-              <p className="text-xs text-muted">Peças do estoque e quanto vai em UMA unidade.</p>
+              <p className="text-xs text-muted">Peças do estoque e quanto vai em UMA unidade. “+ alternativa”: outra peça que pode ir no lugar.</p>
             </div>
             {capacidade !== null && Number.isFinite(capacidade) && (
               <p className="text-right text-xs text-muted">
@@ -185,7 +207,7 @@ export function ProprioModal({ proprio, aoFechar }: { proprio?: ProprioDetalhe; 
                 if (e.key === "Enter") {
                   e.preventDefault();
                   if (sugestoes[0]) {
-                    setLinhas([...atuais, { produto: sugestoes[0], qtd: "1" }]);
+                    setLinhas([...atuais, { produto: sugestoes[0], qtd: "1", alternativas: [] }]);
                     setBusca("");
                   }
                 }
@@ -198,7 +220,7 @@ export function ProprioModal({ proprio, aoFechar }: { proprio?: ProprioDetalhe; 
                     <button
                       type="button"
                       onClick={() => {
-                        setLinhas([...atuais, { produto: p, qtd: "1" }]);
+                        setLinhas([...atuais, { produto: p, qtd: "1", alternativas: [] }]);
                         setBusca("");
                       }}
                       className="flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left hover:bg-surface-2"
@@ -226,38 +248,109 @@ export function ProprioModal({ proprio, aoFechar }: { proprio?: ProprioDetalhe; 
             <ul className="mt-3 divide-y divide-line rounded-xl border border-line">
               {atuais.map((l, i) => {
                 const q = numero(l.qtd);
-                const da = q > 0 ? Math.floor(l.produto.quantidade / q + 1e-9) : null;
+                const da = q > 0 ? daParaLinha(l, q) : null;
                 const limita = da !== null && da === capacidade;
+                const buscando = altBusca?.linha === i;
                 return (
-                  <li key={l.produto.id} className="flex items-center gap-3 px-3 py-2.5">
-                    <MiniaturaProduto produto={l.produto} tamanho="sm" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm">{l.produto.nome}</p>
-                      <p className={cn("tabular text-xs", limita ? "text-warn" : "text-subtle")}>
-                        tem {fmtNum(l.produto.quantidade)} {l.produto.unidade}
-                        {da !== null && ` · dá para ${da}`}
-                        {limita && " · limita"}
-                      </p>
+                  <li key={l.produto.id} className="px-3 py-2.5">
+                    <div className="flex items-center gap-3">
+                      <MiniaturaProduto produto={l.produto} tamanho="sm" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm">{l.produto.nome}</p>
+                        <p className={cn("tabular text-xs", limita ? "text-warn" : "text-subtle")}>
+                          tem {fmtNum(l.produto.quantidade)} {l.produto.unidade}
+                          {l.alternativas.length > 0 && ` (+${fmtNum(estoqueLinha(l) - l.produto.quantidade)} nas alternativas)`}
+                          {da !== null && ` · dá para ${da}`}
+                          {limita && " · limita"}
+                        </p>
+                      </div>
+                      <Input
+                        value={l.qtd}
+                        onChange={(e) => mudarLinha(i, { qtd: e.target.value })}
+                        onFocus={(e) => e.target.select()}
+                        inputMode="decimal"
+                        className={cn("tabular w-20! shrink-0 text-center", q <= 0 && "border-danger")}
+                        aria-label={`Quantidade de ${l.produto.nome} por unidade`}
+                      />
+                      <span className="w-8 text-xs text-subtle">{l.produto.unidade}</span>
+                      <Botao
+                        type="button"
+                        variante="ghost"
+                        tamanho="icon"
+                        aria-label={`Tirar ${l.produto.nome}`}
+                        onClick={() => setLinhas(atuais.filter((_, j) => j !== i))}
+                        className="hover:text-danger"
+                      >
+                        <Trash2 />
+                      </Botao>
                     </div>
-                    <Input
-                      value={l.qtd}
-                      onChange={(e) => setLinhas(atuais.map((x, j) => (j === i ? { ...x, qtd: e.target.value } : x)))}
-                      onFocus={(e) => e.target.select()}
-                      inputMode="decimal"
-                      className={cn("tabular w-20! shrink-0 text-center", q <= 0 && "border-danger")}
-                      aria-label={`Quantidade de ${l.produto.nome} por unidade`}
-                    />
-                    <span className="w-8 text-xs text-subtle">{l.produto.unidade}</span>
-                    <Botao
-                      type="button"
-                      variante="ghost"
-                      tamanho="icon"
-                      aria-label={`Tirar ${l.produto.nome}`}
-                      onClick={() => setLinhas(atuais.filter((_, j) => j !== i))}
-                      className="hover:text-danger"
-                    >
-                      <Trash2 />
-                    </Botao>
+
+                    {/* Alternativas: peças que podem entrar no lugar desta na montagem */}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-11">
+                      {l.alternativas.map((a) => (
+                        <span key={a.id} className="inline-flex items-center gap-1 rounded-md border border-line bg-surface-2 py-0.5 pr-0.5 pl-2 text-xs">
+                          <Repeat className="size-3 text-subtle" />
+                          <span className="max-w-48 truncate">{a.nome}</span>
+                          <span className="tabular text-subtle">· {fmtNum(a.quantidade)}</span>
+                          <button
+                            type="button"
+                            aria-label={`Tirar a alternativa ${a.nome}`}
+                            onClick={() => mudarLinha(i, { alternativas: l.alternativas.filter((x) => x.id !== a.id) })}
+                            className="grid size-4 cursor-pointer place-items-center rounded text-subtle hover:text-danger"
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </span>
+                      ))}
+                      {buscando ? (
+                        <div className="relative w-56">
+                          <Input
+                            autoFocus
+                            value={altBusca.texto}
+                            onChange={(e) => setAltBusca({ linha: i, texto: e.target.value })}
+                            onBlur={() => setTimeout(() => setAltBusca((b) => (b?.linha === i ? null : b)), 150)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setAltBusca(null);
+                              } else if (e.key === "Enter") {
+                                e.preventDefault();
+                                if (sugestoesAlt[0]) addAlternativa(i, sugestoesAlt[0]);
+                              }
+                            }}
+                            placeholder="Buscar alternativa…"
+                            className="h-7 text-xs"
+                            aria-label={`Buscar alternativa para ${l.produto.nome}`}
+                          />
+                          {sugestoesAlt.length > 0 && (
+                            <ul className="absolute inset-x-0 top-full z-10 mt-1 overflow-hidden rounded-xl border border-line-strong bg-surface p-1 shadow-xl">
+                              {sugestoesAlt.map((p) => (
+                                <li key={p.id}>
+                                  <button
+                                    type="button"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => addAlternativa(i, p)}
+                                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-surface-2"
+                                  >
+                                    <span className="min-w-0 flex-1 truncate">{p.nome}</span>
+                                    <span className="tabular text-subtle">tem {fmtNum(p.quantidade)}</span>
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setAltBusca({ linha: i, texto: "" })}
+                          className="inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-subtle hover:text-primary"
+                        >
+                          <Plus className="size-3" /> alternativa
+                        </button>
+                      )}
+                    </div>
                   </li>
                 );
               })}
@@ -278,15 +371,32 @@ export function MontarModal({ proprio, aoFechar }: { proprio: ProprioDetalhe; ao
   const [status, setStatus] = useState<"em_producao" | "pronto">("em_producao");
   const [pessoaId, setPessoaId] = useState<number | null>(usuario.id);
   const [obs, setObs] = useState("");
+  // Peça com alternativa: qual usar nesta montagem. Só a escolhida sai do estoque (nunca as duas).
+  const [preferencias, setPreferencias] = useState<Record<number, number>>({});
 
   const linhas = proprio.componentes.map((c) => {
     const precisa = c.quantidade * qtd;
-    return { c, precisa, fica: c.em_estoque - precisa, falta: precisa > c.em_estoque + 1e-9 };
+    const todas = [
+      { id: c.produto_id, nome: c.produto_nome, tem: c.em_estoque, arquivada: c.produto_arquivado },
+      ...c.alternativas.map((a) => ({ id: a.produto_id, nome: a.produto_nome, tem: a.em_estoque, arquivada: a.arquivado })),
+    ].filter((f) => !f.arquivada);
+    // Sem escolha: a principal; se ela não der, a primeira alternativa que der
+    const padrao = todas.find((f) => f.tem + 1e-9 >= precisa) ?? todas[0];
+    const usada = todas.find((f) => f.id === preferencias[c.produto_id]) ?? padrao;
+    const tem = usada?.tem ?? 0;
+    return { c, precisa, todas, usada, tem, fica: tem - precisa, falta: precisa > tem + 1e-9 };
   });
   const faltaAlgo = linhas.some((l) => l.falta);
 
   const montar = useMutation({
-    mutationFn: () => api.montar(proprio.id, { quantidade: qtd, pessoa_id: pessoaId, status_inicial: status, observacao: obs || null }),
+    mutationFn: () =>
+      api.montar(proprio.id, {
+        quantidade: qtd,
+        pessoa_id: pessoaId,
+        status_inicial: status,
+        observacao: obs || null,
+        preferencias: Object.fromEntries(linhas.filter((l) => l.usada).map((l) => [l.c.produto_id, l.usada!.id])),
+      }),
     onSuccess: (m) => {
       const s = m.unidades;
       toast.success(`${m.quantidade}× ${proprio.nome} montado${m.quantidade > 1 ? "s" : ""}`, {
@@ -381,15 +491,44 @@ export function MontarModal({ proprio, aoFechar }: { proprio: ProprioDetalhe; ao
         <div>
           <p className="mb-1.5 text-[13px] font-medium text-muted">Peças que vão sair do estoque</p>
           <ul className="divide-y divide-line rounded-xl border border-line">
-            {linhas.map(({ c, precisa, fica, falta }) => (
-              <li key={c.produto_id} className="flex items-center gap-3 px-3 py-2">
-                <span className="min-w-0 flex-1 truncate text-sm">{c.produto_nome}</span>
-                <span className="tabular text-sm">
-                  −{fmtNum(precisa)} <span className="text-xs text-subtle">{c.produto_unidade}</span>
-                </span>
-                <span className={cn("tabular w-28 text-right text-xs", falta ? "text-danger" : fica <= 0 ? "text-warn" : "text-muted")}>
-                  {falta ? `faltam ${fmtNum(precisa - c.em_estoque)}` : `${fmtNum(c.em_estoque)} → ${fmtNum(fica)}`}
-                </span>
+            {linhas.map(({ c, precisa, todas, usada, tem, fica, falta }) => (
+              <li key={c.produto_id} className="px-3 py-2">
+                <div className="flex items-center gap-3">
+                  <span className="min-w-0 flex-1 truncate text-sm">
+                    {usada && usada.id !== c.produto_id ? (
+                      <>
+                        {usada.nome} <span className="text-xs text-subtle">no lugar de {c.produto_nome}</span>
+                      </>
+                    ) : (
+                      c.produto_nome
+                    )}
+                  </span>
+                  <span className="tabular text-sm">
+                    −{fmtNum(precisa)} <span className="text-xs text-subtle">{c.produto_unidade}</span>
+                  </span>
+                  <span className={cn("tabular w-28 text-right text-xs", falta ? "text-danger" : fica <= 0 ? "text-warn" : "text-muted")}>
+                    {falta ? `faltam ${fmtNum(precisa - tem)}` : `${fmtNum(tem)} → ${fmtNum(fica)}`}
+                  </span>
+                </div>
+                {todas.length > 1 && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 pl-3">
+                    <span className="flex items-center gap-1.5 text-xs text-muted">
+                      <Repeat className="size-3" /> Usar
+                    </span>
+                    <Select
+                      value={usada?.id ?? ""}
+                      onChange={(e) => setPreferencias((p) => ({ ...p, [c.produto_id]: Number(e.target.value) }))}
+                      className="h-7! w-auto! min-w-48 text-xs"
+                      aria-label={`Qual peça usar como ${c.produto_nome}`}
+                    >
+                      {todas.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {`${f.nome} · tem ${fmtNum(f.tem)}`}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
               </li>
             ))}
           </ul>

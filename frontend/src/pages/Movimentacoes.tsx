@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine, Download, Scale, Undo2 } from "lucide-react";
+import { ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine, Download, FolderKanban, Scale, Undo2 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { CabecalhoPagina } from "../components/Layout";
@@ -122,7 +122,7 @@ export function Movimentacoes() {
                   <th className="px-4 py-2.5 text-right font-medium">Qtd.</th>
                   <th className="hidden px-4 py-2.5 text-right font-medium md:table-cell">Saldo após</th>
                   <th className="px-4 py-2.5 font-medium">Responsável</th>
-                  <th className="hidden px-4 py-2.5 font-medium lg:table-cell">Motivo</th>
+                  <th className="hidden px-4 py-2.5 font-medium lg:table-cell">Projeto / motivo</th>
                 </tr>
               </thead>
               {grupos.map((g) => (
@@ -178,7 +178,19 @@ export function Movimentacoes() {
                           <span className="text-subtle">—</span>
                         )}
                       </td>
-                      <td className="hidden max-w-[240px] truncate px-4 py-3 text-muted lg:table-cell">{m.motivo ?? <span className="text-subtle">—</span>}</td>
+                      <td className="hidden max-w-[280px] px-4 py-3 text-muted lg:table-cell">
+                        {m.projeto_nome && (
+                          <span className="flex items-center gap-1.5 truncate text-fg" title="Projeto">
+                            <FolderKanban className="size-3.5 shrink-0 text-primary" />
+                            <span className="truncate">{m.projeto_nome}</span>
+                          </span>
+                        )}
+                        {m.motivo ? (
+                          <span className="block truncate">{m.motivo}</span>
+                        ) : (
+                          !m.projeto_nome && <span className="text-subtle">—</span>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}

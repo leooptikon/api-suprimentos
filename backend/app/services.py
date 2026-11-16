@@ -77,6 +77,8 @@ def movimentacao_out(m: models.Movimentacao) -> schemas.MovimentacaoOut:
         pessoa_id=m.pessoa_id,
         pessoa_nome=m.pessoa.nome if m.pessoa else None,
         registrado_por_nome=m.registrado_por.nome if m.registrado_por else None,
+        projeto_id=m.projeto_id,
+        projeto_nome=m.projeto.nome if m.projeto else None,
         tipo=m.tipo,
         quantidade=m.quantidade,
         saldo_apos=m.saldo_apos,
@@ -123,6 +125,11 @@ def aplicar_movimentacao(
     if produto.arquivado:
         raise HTTPException(409, "Produto arquivado: restaure-o antes de movimentar")
 
+    if dados.projeto_id is not None:
+        if dados.tipo != "retirada":
+            raise HTTPException(422, "Projeto só vale para retirada")
+        if not db.get(models.Projeto, dados.projeto_id):
+            raise HTTPException(404, "Projeto não encontrado")
     if dados.pessoa_id is not None and not db.get(models.Pessoa, dados.pessoa_id):
         raise HTTPException(404, "Pessoa não encontrada")
     if dados.tipo == "retirada" and dados.pessoa_id is None:
@@ -180,6 +187,7 @@ def aplicar_movimentacao(
         motivo=dados.motivo,
         estorno_de_id=estorno_de.id if estorno_de else None,
         montagem_id=montagem_id,
+        projeto_id=dados.projeto_id,
     )
     db.add(mov)
     if dados.tipo == "entrada" and estorno_de is None and montagem_id is None:
