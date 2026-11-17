@@ -2,7 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from .. import models
@@ -22,12 +22,22 @@ class UnidadeNoProjeto(BaseModel):
     status: StatusUnidade
 
 
+class ItemNoProjeto(BaseModel):
+    """Produto do estoque mandado para o projeto por retirada (somado; retiradas desfeitas não contam)."""
+
+    produto_id: int
+    produto_nome: str
+    unidade: str
+    quantidade: float
+
+
 class ProjetoOut(BaseModel):
     id: int
     nome: str  # exatamente o nome da pasta: "21.40 - TM ENGENHARIA"
     url: str | None
     no_onedrive: bool  # False = a pasta sumiu do OneDrive (não aparece mais para escolher)
     unidades: list[UnidadeNoProjeto]
+    itens: list[ItemNoProjeto] = []
 
 
 class OrigemOut(BaseModel):
@@ -64,8 +74,24 @@ def listar(db: Session = Depends(get_db)):
         por_projeto.setdefault(u.projeto_id, []).append(
             UnidadeNoProjeto(id=u.id, numero_serie=u.numero_serie, proprio_nome=u.proprio.nome, status=u.status)
         )
+    # Retiradas com projeto, somadas por produto (as desfeitas ficam de fora)
+    linhas = db.execute(
+        select(models.Movimentacao.projeto_id, models.Produto.id, models.Produto.nome, models.Produto.unidade,
+               func.sum(models.Movimentacao.quantidade))
+        .join(models.Produto, models.Produto.id == models.Movimentacao.produto_id)
+        .where(models.Movimentacao.projeto_id.is_not(None), models.Movimentacao.tipo == "retirada",
+               models.Movimentacao.estornada.is_(False))
+        .group_by(models.Movimentacao.projeto_id, models.Produto.id, models.Produto.nome, models.Produto.unidade)
+    )
+    itens: dict[int, list[ItemNoProjeto]] = {}
+    for projeto_id, pid, nome, unidade, total in linhas:
+        if abs(total) > 1e-9:
+            itens.setdefault(projeto_id, []).append(
+                ItemNoProjeto(produto_id=pid, produto_nome=nome, unidade=unidade, quantidade=abs(total))
+            )
     return [
-        ProjetoOut(id=p.id, nome=p.nome, url=p.url, no_onedrive=p.no_onedrive, unidades=por_projeto.get(p.id, []))
+        ProjetoOut(id=p.id, nome=p.nome, url=p.url, no_onedrive=p.no_onedrive, unidades=por_projeto.get(p.id, []),
+                   itens=sorted(itens.get(p.id, []), key=lambda i: i.produto_nome.lower()))
         for p in projetos
     ]
 

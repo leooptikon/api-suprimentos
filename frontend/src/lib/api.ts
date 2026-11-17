@@ -300,6 +300,8 @@ export interface Projeto {
   /** false = a pasta saiu do OneDrive; não aparece mais para escolher */
   no_onedrive: boolean;
   unidades: { id: number; numero_serie: string; proprio_nome: string; status: StatusUnidade }[];
+  /** Produtos do estoque mandados por retirada (somados) */
+  itens: { produto_id: number; produto_nome: string; unidade: string; quantidade: number }[];
 }
 
 export interface OrigemProjetos {

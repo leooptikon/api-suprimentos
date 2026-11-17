@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ExternalLink, FolderKanban, FolderOpen, Plug, RefreshCw, Search } from "lucide-react";
+import { AlertTriangle, ChevronDown, ExternalLink, FolderKanban, FolderOpen, Package, Plug, RefreshCw, Search } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -7,7 +7,7 @@ import { useAuth } from "../components/auth";
 import { CabecalhoPagina } from "../components/Layout";
 import { Badge, Botao, Card, cn, Esqueleto, Input, Vazio } from "../components/ui";
 import { api, type LeituraProjetos, type OrigemProjetos, type Projeto } from "../lib/api";
-import { fmtRelativo } from "../lib/format";
+import { fmtNum, fmtRelativo } from "../lib/format";
 import { BadgeStatusUnidade } from "../lib/proprios";
 
 function resumoLeitura(r: LeituraProjetos) {
@@ -25,6 +25,8 @@ export function Projetos() {
   const origem = useQuery({ queryKey: ["origem-projetos"], queryFn: api.origemProjetos });
   const [busca, setBusca] = useState("");
   const [verSaidos, setVerSaidos] = useState(false);
+  // Só um projeto aberto por vez, para a lista não ficar comprida demais
+  const [aberto, setAberto] = useState<number | null>(null);
 
   const recarregar = () => {
     qc.invalidateQueries({ queryKey: ["projetos"] });
@@ -95,7 +97,7 @@ export function Projetos() {
           ) : (
             <ul className="divide-y divide-line">
               {visiveis.map((p) => (
-                <LinhaProjeto key={p.id} p={p} />
+                <LinhaProjeto key={p.id} p={p} aberto={aberto === p.id} aoAlternar={() => setAberto((a) => (a === p.id ? null : p.id))} />
               ))}
             </ul>
           )}
@@ -105,33 +107,81 @@ export function Projetos() {
   );
 }
 
-function LinhaProjeto({ p }: { p: Projeto }) {
+const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
+
+function LinhaProjeto({ p, aberto, aoAlternar }: { p: Projeto; aberto: boolean; aoAlternar: () => void }) {
+  const vazio = p.unidades.length === 0 && p.itens.length === 0;
+  const painel = `projeto-${p.id}`;
+  const resumo = [
+    p.unidades.length > 0 && plural(p.unidades.length, "unidade", "unidades"),
+    p.itens.length > 0 && plural(p.itens.length, "item", "itens"),
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return (
-    <li className={cn("flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4", !p.no_onedrive && "opacity-70")}>
-      <div className="flex min-w-0 items-center gap-2 sm:w-80 sm:shrink-0">
-        <FolderKanban className="size-4 shrink-0 text-primary" />
-        <span className="truncate font-medium" title={p.nome}>
-          {p.nome}
-        </span>
+    <li className={cn(!p.no_onedrive && "opacity-70")}>
+      <div className={cn("flex items-center gap-2 px-4 py-3 transition-colors", aberto && "bg-surface-2/50")}>
+        <button
+          type="button"
+          onClick={aoAlternar}
+          disabled={vazio}
+          aria-expanded={vazio ? undefined : aberto}
+          aria-controls={vazio ? undefined : painel}
+          className="group flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left disabled:cursor-default"
+        >
+          <FolderKanban className="size-4 shrink-0 text-primary" />
+          <span className={cn("truncate font-medium", !vazio && "group-hover:text-primary")} title={p.nome}>
+            {p.nome}
+          </span>
+          {!p.no_onedrive && <Badge>Saiu do OneDrive</Badge>}
+          <span className={cn("ml-auto shrink-0 pl-3 text-xs", vazio ? "text-subtle" : "text-muted")}>{vazio ? "Nada enviado" : resumo}</span>
+          {!vazio && <ChevronDown className={cn("size-4 shrink-0 text-subtle transition-transform", aberto && "rotate-180 text-primary")} />}
+        </button>
         {p.url && (
-          <a href={p.url} target="_blank" rel="noreferrer noopener" className="shrink-0 text-subtle hover:text-primary" aria-label={`Abrir a pasta ${p.nome} no OneDrive`}>
+          <a href={p.url} target="_blank" rel="noreferrer noopener" className="shrink-0 p-1 text-subtle hover:text-primary" aria-label={`Abrir a pasta ${p.nome} no OneDrive`}>
             <ExternalLink className="size-3.5" />
           </a>
         )}
-        {!p.no_onedrive && <Badge>Saiu do OneDrive</Badge>}
       </div>
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 sm:justify-end">
-        {p.unidades.length === 0 ? (
-          <span className="text-xs text-subtle">Nenhuma unidade</span>
-        ) : (
-          p.unidades.map((u) => (
-            <span key={u.id} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface-2/60 py-0.5 pr-0.5 pl-2" title={u.proprio_nome}>
-              <span className="tabular font-mono text-xs">{u.numero_serie}</span>
-              <BadgeStatusUnidade status={u.status} />
-            </span>
-          ))
-        )}
-      </div>
+
+      {aberto && !vazio && (
+        <div id={painel} className="grid gap-4 border-t border-line bg-bg/30 px-4 py-3 pl-10 sm:grid-cols-2">
+          {p.unidades.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[11px] font-medium tracking-wider text-subtle uppercase">Produtos próprios</p>
+              <ul className="flex flex-col gap-1">
+                {p.unidades.map((u) => (
+                  <li key={u.id} className="flex items-center gap-2 text-sm">
+                    <span className="tabular font-mono text-xs">{u.numero_serie}</span>
+                    <span className="truncate text-muted">{u.proprio_nome}</span>
+                    <span className="ml-auto shrink-0">
+                      <BadgeStatusUnidade status={u.status} />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {p.itens.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[11px] font-medium tracking-wider text-subtle uppercase">Itens do estoque</p>
+              <ul className="flex flex-col gap-1">
+                {p.itens.map((i) => (
+                  <li key={i.produto_id}>
+                    <Link to={`/produtos/${i.produto_id}`} className="flex items-center gap-2 text-sm hover:text-primary">
+                      <Package className="size-3.5 shrink-0 text-subtle" />
+                      <span className="truncate">{i.produto_nome}</span>
+                      <span className="tabular ml-auto shrink-0 text-xs text-muted">
+                        {fmtNum(i.quantidade)} {i.unidade}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
     </li>
   );
 }
