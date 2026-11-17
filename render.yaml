@@ -1,0 +1,37 @@
+# Trace no Render (plano grátis): Render → New → Blueprint → escolher este repositório.
+# O banco é o Postgres do Supabase (DATABASE_URL); as fotos vão para o Supabase Storage.
+# Os valores marcados com sync: false são pedidos na criação (chaves; nunca ficam no git).
+services:
+  - type: web
+    name: trace
+    runtime: docker
+    plan: free
+    region: virginia # perto do Supabase (us-east-1)
+    branch: main
+    autoDeploy: true # cada push na main atualiza o site
+    healthCheckPath: /api/saude
+    envVars:
+      - key: TZ
+        value: America/Sao_Paulo
+      - key: COOKIE_SEGURO # o Render serve em https
+        value: "1"
+      - key: FORWARDED_ALLOW_IPS # IP real de quem acessa (o bloqueio de senha errada usa)
+        value: "*"
+      - key: DATABASE_URL # Supabase → Connect → Session pooler
+        sync: false
+      - key: SUPABASE_URL # Supabase → Project Settings → API (https://xxxx.supabase.co)
+        sync: false
+      - key: SUPABASE_SECRET_KEY # Supabase → Project Settings → API Keys → secret (sb_secret_…)
+        sync: false
+      - key: ML_CLIENT_ID
+        sync: false
+      - key: ML_CLIENT_SECRET
+        sync: false
+      - key: ML_REDIRECT_URI
+        sync: false
+      - key: ML_HORARIO
+        sync: false
+      - key: MS_CLIENT_ID
+        sync: false
+      - key: MS_TENANT_ID
+        sync: false

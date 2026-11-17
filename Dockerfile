@@ -28,7 +28,8 @@ WORKDIR /app/backend
 EXPOSE 8010
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8010/api/saude', timeout=4)"
+  CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://localhost:{os.getenv(\"PORT\", \"8010\")}/api/saude', timeout=4)"
 
-# 1 worker só: os agendadores do Mercado Livre e do OneDrive rodam dentro do processo
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8010", "--workers", "1"]
+# 1 worker só: os agendadores do Mercado Livre e do OneDrive rodam dentro do processo.
+# PORT: o Render escolhe a porta; no servidor do escritório fica 8010.
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8010} --workers 1"]

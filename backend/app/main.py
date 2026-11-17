@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text
 
 from .db import Base, engine
-from . import mercadolivre, onedrive
+from . import manter_acordado, mercadolivre, onedrive
 from .db import SessionLocal
 from .routers import autenticacao, cadastros, compras, evolucao, integracoes, movimentacoes, produtos, proprios
 from .routers import onedrive as rotas_onedrive
@@ -100,6 +100,8 @@ def _agendar_coleta():
     mercadolivre.iniciar_agendador(SessionLocal)
     # Espelho do estoque na planilha do OneDrive (só age com a conta conectada e a pasta escolhida)
     onedrive.iniciar_agendador(SessionLocal)
+    # No Render grátis: chama o próprio endereço público para o serviço não "dormir"
+    manter_acordado.iniciar()
 
 
 @app.get("/api/saude", tags=["Sistema"])

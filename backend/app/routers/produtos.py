@@ -2,14 +2,13 @@ import secrets
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from fastapi.responses import FileResponse
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from .. import models, schemas, services
+from .. import fotos, models, schemas, services
 from ..auth import admin_requerido, usuario_atual
-from ..db import DATA_DIR, get_db
+from ..db import get_db
 
 router = APIRouter(prefix="/api/produtos", tags=["Produtos"], dependencies=[Depends(usuario_atual)])
 ADMIN = [Depends(admin_requerido)]
@@ -212,8 +211,6 @@ def desvincular_fornecedor(produto_id: int, vinculo_id: int, db: Session = Depen
 
 
 # ---------- Foto ----------
-FOTOS = DATA_DIR / "fotos"
-FOTOS.mkdir(parents=True, exist_ok=True)
 FOTO_MAX = 3 * 1024 * 1024
 # Confere os primeiros bytes do arquivo, não só o Content-Type informado
 _ASSINATURAS = {
@@ -225,8 +222,7 @@ _MIME = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
 
 
 def _apagar_foto(nome: str | None):
-    if nome:
-        (FOTOS / nome).unlink(missing_ok=True)
+    fotos.apagar(nome)
 
 
 @router.put("/{produto_id}/foto", response_model=schemas.ProdutoDetalhe, dependencies=ADMIN)
@@ -243,8 +239,12 @@ async def enviar_foto(produto_id: int, request: Request, db: Session = Depends(g
         raise HTTPException(415, "Formato não suportado. Use JPG, PNG ou WebP")
 
     antiga = produto.foto
-    produto.foto = f"{produto.id}-{secrets.token_hex(6)}.{ext}"
-    (FOTOS / produto.foto).write_bytes(dados)
+    nova = f"{produto.id}-{secrets.token_hex(6)}.{ext}"
+    try:
+        fotos.salvar(nova, dados, _MIME[ext])
+    except fotos.ErroFoto as e:
+        raise HTTPException(502, str(e))
+    produto.foto = nova
     db.commit()
     _apagar_foto(antiga)
     return services.produto_detalhe(_carregar(db, produto_id))
@@ -253,10 +253,15 @@ async def enviar_foto(produto_id: int, request: Request, db: Session = Depends(g
 @router.get("/{produto_id}/foto", include_in_schema=False)
 def ver_foto(produto_id: int, db: Session = Depends(get_db)):
     produto = db.get(models.Produto, produto_id)
-    if not produto or not produto.foto or not (FOTOS / produto.foto).is_file():
+    try:
+        dados = fotos.ler(produto.foto) if produto and produto.foto else None
+    except fotos.ErroFoto as e:
+        raise HTTPException(502, str(e))
+    if dados is None:
         raise HTTPException(404, "Produto sem foto")
-    return FileResponse(
-        FOTOS / produto.foto,
+    # O nome muda a cada foto nova (vai na URL), então pode guardar em cache para sempre
+    return Response(
+        dados,
         media_type=_MIME[produto.foto.rsplit(".", 1)[1]],
         headers={"Cache-Control": "private, max-age=31536000, immutable"},
     )

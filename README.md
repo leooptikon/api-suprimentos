@@ -85,6 +85,24 @@ Fora do Docker: `cd backend && .venv/bin/python scripts/copiar_para_postgres.py`
 As **fotos** dos produtos continuam em `backend/data/fotos` no servidor.
 Em máquinas de desenvolvimento, não use a mesma `DATABASE_URL` da produção (tudo o que for testado iria para o banco real).
 
+## Na nuvem: Render (grátis)
+
+O `render.yaml` na raiz descreve o serviço (Docker, plano grátis, região Virginia, perto do Supabase).
+
+1. Render → **New → Blueprint** → escolher este repositório do GitHub.
+2. Preencher as variáveis pedidas (as mesmas do `backend/.env`, mais as do Supabase Storage):
+   `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `ML_*`, `MS_*`.
+3. Cada push na `main` atualiza o site sozinho.
+
+- **Não dorme:** no plano grátis o Render desliga após 15 min sem acesso; o próprio site chama o seu
+  endereço público (`RENDER_EXTERNAL_URL`, que o Render preenche) a cada 2 min (`app/manter_acordado.py`).
+  Um serviço ligado 24 h cabe nas 750 h/mês do plano grátis.
+- **Fotos:** com `SUPABASE_URL` + `SUPABASE_SECRET_KEY` vão para o Supabase Storage (bucket privado
+  `fotos`, criado sozinho), porque o disco do Render é apagado a cada atualização.
+- **Só um servidor ligado:** quando o Render estiver no ar, pare o container do escritório
+  (`docker compose down`). Dois servidores ao mesmo tempo renovariam o login do Mercado Livre e
+  enviariam a planilha do OneDrive em dobro.
+
 ## Rodando em produção sem Docker (um único processo)
 
 ```bash
