@@ -224,7 +224,15 @@ export function ProdutoDetalhe() {
                       )}
                       {f.monitorado && <SituacaoColeta v={f} />}
                     </div>
-                    <span className="tabular text-sm">{f.preco != null ? fmtMoeda(f.preco) : <span className="text-subtle">—</span>}</span>
+                    <span className="tabular text-right text-sm">
+                      {f.preco != null ? fmtMoeda(f.preco) : <span className="text-subtle">—</span>}
+                      {f.unidades_por_compra !== 1 && (
+                        <span className="block text-xs text-subtle">
+                          {fmtNum(f.unidades_por_compra)} {p.unidade}
+                          {f.preco_unitario != null && ` · ${fmtMoeda(f.preco_unitario)}/${p.unidade}`}
+                        </span>
+                      )}
+                    </span>
                     {admin && !p.arquivado && (
                       <Botao tamanho="icon" variante="ghost" aria-label={`Editar ${f.fornecedor_nome}`} onClick={() => setVinculo(f)} className="opacity-60 group-hover:opacity-100">
                         <Pencil />
@@ -304,6 +312,7 @@ function VinculoModal({ produto, vinculo, aoFechar }: { produto: Produto; vincul
   const [fornecedorId, setFornecedorId] = useState<number | null>(vinculo?.fornecedor_id ?? null);
   const [url, setUrl] = useState(vinculo?.url ?? "");
   const [preco, setPreco] = useState(vinculo?.preco != null ? String(vinculo.preco).replace(".", ",") : "");
+  const [unidades, setUnidades] = useState(String(vinculo?.unidades_por_compra ?? 1).replace(".", ","));
   const [preferido, setPreferido] = useState(vinculo?.preferido ?? produto.fornecedores.length === 0);
 
   const usados = new Set(produto.fornecedores.map((f) => f.fornecedor_id));
@@ -312,10 +321,12 @@ function VinculoModal({ produto, vinculo, aoFechar }: { produto: Produto; vincul
   // Aceita "1.234,56" (padrão brasileiro) e "1234.56"
   const precoNum = preco.trim() ? Number(preco.includes(",") ? preco.replace(/\./g, "").replace(",", ".") : preco) : null;
   const precoInvalido = precoNum !== null && (!Number.isFinite(precoNum) || precoNum < 0);
+  const unidadesNum = Number(unidades.replace(",", "."));
+  const unidadesInvalidas = !unidades.trim() || !Number.isFinite(unidadesNum) || unidadesNum <= 0;
 
   const salvar = useMutation({
     mutationFn: () => {
-      const d = { fornecedor_id: fornecedorId!, url: url || null, preco: precoNum, preferido };
+      const d = { fornecedor_id: fornecedorId!, url: url || null, preco: precoNum, unidades_por_compra: unidadesNum, preferido };
       return vinculo ? api.atualizarVinculo(produto.id, vinculo.id, d) : api.vincular(produto.id, d);
     },
     onSuccess: () => {
@@ -352,7 +363,7 @@ function VinculoModal({ produto, vinculo, aoFechar }: { produto: Produto; vincul
           <Botao variante="ghost" onClick={aoFechar}>
             Cancelar
           </Botao>
-          <Botao variante="primary" type="submit" form="form-vinculo" disabled={!fornecedorId || precoInvalido} carregando={salvar.isPending}>
+          <Botao variante="primary" type="submit" form="form-vinculo" disabled={!fornecedorId || precoInvalido || unidadesInvalidas} carregando={salvar.isPending}>
             Salvar
           </Botao>
         </>
@@ -363,7 +374,7 @@ function VinculoModal({ produto, vinculo, aoFechar }: { produto: Produto; vincul
         className="flex flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault();
-          if (fornecedorId && !precoInvalido) salvar.mutate();
+          if (fornecedorId && !precoInvalido && !unidadesInvalidas) salvar.mutate();
         }}
       >
         <Campo
@@ -412,13 +423,36 @@ function VinculoModal({ produto, vinculo, aoFechar }: { produto: Produto; vincul
         >
           {(id) => <Input id={id} type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" maxLength={500} />}
         </Campo>
-        <Campo
-          rotulo="Preço (R$)"
-          dica={tipoLink === "anuncio" ? "Será substituído pelo preço do anúncio na próxima atualização." : "Último preço que vocês viram nessa loja."}
-          erro={precoInvalido ? "Preço inválido" : undefined}
-        >
-          {(id) => <Input id={id} inputMode="decimal" className="tabular" value={preco} onChange={(e) => setPreco(e.target.value)} placeholder="0,00" />}
-        </Campo>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Campo
+            rotulo="Preço do link (R$)"
+            dica={tipoLink === "anuncio" ? "Será substituído pelo preço do anúncio na próxima atualização." : "Último preço que vocês viram nessa loja."}
+            erro={precoInvalido ? "Preço inválido" : undefined}
+          >
+            {(id) => <Input id={id} inputMode="decimal" className="tabular" value={preco} onChange={(e) => setPreco(e.target.value)} placeholder="0,00" />}
+          </Campo>
+          <Campo
+            rotulo="Unidades por compra"
+            erro={unidadesInvalidas ? "Informe quantas unidades vêm" : undefined}
+            dica={
+              !unidadesInvalidas && unidadesNum !== 1 && precoNum != null && !precoInvalido
+                ? `Sai ${fmtMoeda(precoNum / unidadesNum)} por ${produto.unidade}`
+                : `Quantos ${produto.unidade} vêm nesse link (ex.: caixa com 10 → 10)`
+            }
+          >
+            {(id) => (
+              <Input
+                id={id}
+                inputMode="decimal"
+                className="tabular"
+                value={unidades}
+                onChange={(e) => setUnidades(e.target.value)}
+                onFocus={(e) => e.target.select()}
+                placeholder="1"
+              />
+            )}
+          </Campo>
+        </div>
         <Switch checked={preferido} onChange={setPreferido} rotulo="Fornecedor preferido" descricao="É de onde vocês costumam comprar este item." />
       </form>
     </Modal>

@@ -29,13 +29,15 @@ def _query():
 
 def _opcoes(p: models.Produto) -> list[schemas.OpcaoCompra]:
     # Preferido primeiro, depois do mais barato para o mais caro (sem preço por último)
-    vinculos = sorted(p.fornecedores, key=lambda v: (not v.preferido, v.preco is None, v.preco or 0))
+    vinculos = sorted(p.fornecedores, key=lambda v: (not v.preferido, v.preco is None, services.preco_unitario(v) or 0))
     return [
         schemas.OpcaoCompra(
             fornecedor_id=v.fornecedor_id,
             fornecedor_nome=v.fornecedor.nome,
             fornecedor_localizacao=v.fornecedor.localizacao,
             preco=v.preco,
+            unidades_por_compra=v.unidades_por_compra or 1,
+            preco_unitario=services.preco_unitario(v),
             url=v.url,
             preferido=v.preferido,
         )
@@ -137,14 +139,19 @@ def exportar(dados: schemas.ExportarComprasIn, db: Session = Depends(get_db)):
         if not p:
             continue
         opcao = next((o for o in _opcoes(p) if o.fornecedor_id == item.fornecedor_id), None)
-        subtotal = round(item.quantidade * opcao.preco, 2) if opcao and opcao.preco is not None else None
+        # O link pode vender caixa: compra-se um número inteiro de links (ex.: 15 un em caixas de 10 → 2 caixas)
+        por_link = opcao.unidades_por_compra if opcao else 1
+        links = math.ceil(item.quantidade / por_link - 1e-9) if opcao else None
+        subtotal = round(links * opcao.preco, 2) if opcao and opcao.preco is not None else None
         total += subtotal or 0
         linhas.append([
             p.nome, p.categoria, item.quantidade, p.unidade, p.quantidade, p.estoque_minimo,
             opcao.fornecedor_nome if opcao else None, opcao.fornecedor_localizacao if opcao else None,
-            opcao.preco if opcao else None, subtotal, opcao.url if opcao else None, motivos.get(p.id),
+            links, por_link if opcao else None, opcao.preco if opcao else None,
+            opcao.preco_unitario if opcao else None, subtotal, opcao.url if opcao else None, motivos.get(p.id),
         ])
     colunas = ["Produto", "Categoria", "Comprar", "Unidade", "Saldo atual", "Estoque mínimo",
-               "Fornecedor", "Localização do fornecedor", "Preço unitário (R$)", "Subtotal (R$)", "Link", "Motivo"]
-    rodape = ["Total estimado", None, None, None, None, None, None, None, None, round(total, 2), None, None]
+               "Fornecedor", "Localização do fornecedor", "Links/caixas a comprar", "Unidades por link",
+               "Preço do link (R$)", "Preço por unidade (R$)", "Subtotal (R$)", "Link", "Motivo"]
+    rodape = ["Total estimado"] + [None] * 11 + [round(total, 2), None, None]
     return download(planilha("Lista de compras", colunas, linhas, rodape), "lista-de-compras")

@@ -123,7 +123,8 @@ StatusEstoque = Literal["ok", "baixo", "esgotado"]
 class ProdutoFornecedorIn(_Base):
     fornecedor_id: int
     url: str | None = Field(default=None, max_length=500)
-    preco: float | None = Field(default=None, ge=0)
+    preco: float | None = Field(default=None, ge=0, description="Preço do link (o anúncio inteiro)")
+    unidades_por_compra: float = Field(default=1, gt=0, le=100000, description="Unidades que vêm no link (ex.: caixa com 10)")
     preferido: bool = False
 
     _limpa = field_validator("url", mode="before")(_vazio_para_none)
@@ -131,6 +132,7 @@ class ProdutoFornecedorIn(_Base):
 
 class ProdutoFornecedorOut(ProdutoFornecedorIn):
     id: int
+    preco_unitario: float | None = None
     fornecedor_nome: str
     monitorado: bool = False
     preco_atualizado_em: datetime | None = None
@@ -247,7 +249,9 @@ class OpcaoCompra(BaseModel):
     fornecedor_id: int
     fornecedor_nome: str
     fornecedor_localizacao: str | None = None
-    preco: float | None
+    preco: float | None  # do link inteiro
+    unidades_por_compra: float = 1
+    preco_unitario: float | None = None
     url: str | None
     preferido: bool
 

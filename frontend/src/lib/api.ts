@@ -27,7 +27,11 @@ export interface Vinculo {
   fornecedor_id: number;
   fornecedor_nome: string;
   url: string | null;
+  /** Preço do link inteiro (o anúncio pode ser uma caixa) */
   preco: number | null;
+  /** Quantas unidades vêm nesse link (ex.: caixa com 10) */
+  unidades_por_compra: number;
+  preco_unitario: number | null;
   preferido: boolean;
   /** Link de anúncio do Mercado Livre: o preço é atualizado todo dia */
   monitorado: boolean;
@@ -37,7 +41,7 @@ export interface Vinculo {
   erro_coleta: string | null;
 }
 
-export type VinculoForm = Pick<Vinculo, "fornecedor_id" | "url" | "preco" | "preferido">;
+export type VinculoForm = Pick<Vinculo, "fornecedor_id" | "url" | "preco" | "unidades_por_compra" | "preferido">;
 
 export interface ProdutoDetalhe extends Produto {
   fornecedores: Vinculo[];
@@ -161,7 +165,10 @@ export interface OpcaoCompra {
   fornecedor_id: number;
   fornecedor_nome: string;
   fornecedor_localizacao: string | null;
+  /** Preço do link inteiro */
   preco: number | null;
+  unidades_por_compra: number;
+  preco_unitario: number | null;
   url: string | null;
   preferido: boolean;
 }

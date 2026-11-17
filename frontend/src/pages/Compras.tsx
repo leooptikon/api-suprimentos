@@ -39,8 +39,10 @@ export function Compras() {
     const e = escolha(i);
     const opcao = i.opcoes.find((o) => o.fornecedor_id === e.fornecedorId) ?? null;
     const qtd = lerQtd(e.qtd);
-    const subtotal = opcao?.preco != null ? qtd * opcao.preco : null;
-    return { item: i, e, opcao, qtd, subtotal };
+    // O link pode vender caixa: compra-se um número inteiro de links (15 un em caixas de 10 → 2 caixas)
+    const links = opcao && qtd > 0 ? Math.ceil(qtd / opcao.unidades_por_compra - 1e-9) : 0;
+    const subtotal = opcao?.preco != null ? links * opcao.preco : null;
+    return { item: i, e, opcao, qtd, links, subtotal };
   });
   const marcadas = linhas.filter((l) => l.e.incluir && l.qtd > 0);
   const total = marcadas.reduce((s, l) => s + (l.subtotal ?? 0), 0);
@@ -75,7 +77,9 @@ export function Compras() {
       let linha = `• ${p.nome} — ${fmtNum(l.qtd)} ${p.unidade}`;
       if (l.item.manual?.motivo) linha += ` [${l.item.manual.motivo}]`;
       if (l.opcao)
-        linha += ` — ${l.opcao.fornecedor_nome}${l.opcao.fornecedor_localizacao ? ` (${l.opcao.fornecedor_localizacao})` : ""}${l.opcao.preco != null ? ` ${fmtMoeda(l.opcao.preco)} (${fmtMoeda(l.subtotal!)})` : ""}`;
+        linha += ` — ${l.opcao.fornecedor_nome}${l.opcao.fornecedor_localizacao ? ` (${l.opcao.fornecedor_localizacao})` : ""}${
+          l.opcao.unidades_por_compra !== 1 ? ` — ${l.links}× link de ${fmtNum(l.opcao.unidades_por_compra)} ${p.unidade}` : ""
+        }${l.opcao.preco != null ? ` ${fmtMoeda(l.opcao.preco)} (${fmtMoeda(l.subtotal!)})` : ""}`;
       if (l.opcao?.url) linha += `\n  ${l.opcao.url}`;
       return linha;
     });
@@ -164,7 +168,7 @@ export function Compras() {
               </button>
             </div>
             <ul className="divide-y divide-line">
-              {linhas.map(({ item: i, e, opcao, subtotal }) => {
+              {linhas.map(({ item: i, e, opcao, links, subtotal }) => {
                 const p = i.produto;
                 return (
                   <li
@@ -250,6 +254,7 @@ export function Compras() {
                               {o.preferido ? "★ " : ""}
                               {o.fornecedor_nome}
                               {o.preco != null ? ` — ${fmtMoeda(o.preco)}` : " — sem preço"}
+                              {o.unidades_por_compra !== 1 ? ` (${fmtNum(o.unidades_por_compra)} ${p.unidade})` : ""}
                             </option>
                           ))}
                         </Select>
@@ -273,7 +278,14 @@ export function Compras() {
                     </div>
 
                     <div className="flex items-center justify-between gap-3 max-lg:pl-8 lg:justify-end">
-                      <span className="tabular text-sm">{subtotal != null ? fmtMoeda(subtotal) : <span className="text-subtle">—</span>}</span>
+                      <span className="tabular text-right text-sm">
+                        {subtotal != null ? fmtMoeda(subtotal) : <span className="text-subtle">—</span>}
+                        {opcao && opcao.unidades_por_compra !== 1 && links > 0 && (
+                          <span className="block text-xs text-subtle" title="O link vende mais de uma unidade">
+                            {links}× link de {fmtNum(opcao.unidades_por_compra)} {p.unidade}
+                          </span>
+                        )}
+                      </span>
                       {opcao?.url ? (
                         <a href={opcao.url} target="_blank" rel="noreferrer noopener" tabIndex={-1}>
                           <Botao tamanho="sm" variante="ghost" className="text-primary">

@@ -96,7 +96,9 @@ class ProdutoFornecedor(Base):
     produto_id: Mapped[int] = mapped_column(ForeignKey("produtos.id", ondelete="CASCADE"))
     fornecedor_id: Mapped[int] = mapped_column(ForeignKey("fornecedores.id", ondelete="CASCADE"))
     url: Mapped[str | None] = mapped_column(String(500))
-    preco: Mapped[float | None] = mapped_column(Float)
+    preco: Mapped[float | None] = mapped_column(Float)  # preço do link (do anúncio inteiro)
+    # Quantas unidades do produto vêm nesse link (ex.: caixa com 10). Preço por unidade = preco / isto
+    unidades_por_compra: Mapped[float] = mapped_column(Float, default=1, server_default="1")
     preferido: Mapped[bool] = mapped_column(Boolean, default=False)
     # Preenchidos quando o preço vem da API do Mercado Livre (link de anúncio)
     preco_atualizado_em: Mapped[datetime | None] = mapped_column(UTCDateTime)

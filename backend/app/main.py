@@ -41,6 +41,8 @@ def _migrar():
                 con.execute(text(f"ALTER TABLE fornecedores ADD COLUMN {col} {tipo}"))
                 if col == "atualizado_em":
                     con.execute(text("UPDATE fornecedores SET atualizado_em = criado_em"))
+        if "unidades_por_compra" not in vinculo_cols:
+            con.execute(text("ALTER TABLE produto_fornecedor ADD COLUMN unidades_por_compra FLOAT NOT NULL DEFAULT 1"))
         for col, tipo in [("preco_atualizado_em", "DATETIME"), ("frete_gratis", "BOOLEAN"),
                           ("situacao_anuncio", "VARCHAR(24)"), ("erro_coleta", "VARCHAR(255)")]:
             if col not in vinculo_cols:

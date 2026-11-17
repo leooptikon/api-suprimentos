@@ -13,8 +13,15 @@ def status_estoque(p: models.Produto) -> schemas.StatusEstoque:
     return "ok"
 
 
+def preco_unitario(v: models.ProdutoFornecedor) -> float | None:
+    """Preço de UMA unidade: o link pode vender uma caixa (ex.: 10 unidades por R$ 50 → R$ 5)."""
+    if v.preco is None:
+        return None
+    return round(v.preco / (v.unidades_por_compra or 1), 4)
+
+
 def menor_preco(p: models.Produto) -> float | None:
-    precos = [pf.preco for pf in p.fornecedores if pf.preco is not None]
+    precos = [u for pf in p.fornecedores if (u := preco_unitario(pf)) is not None]
     return min(precos) if precos else None
 
 
@@ -23,7 +30,7 @@ def link_compra(p: models.Produto) -> models.ProdutoFornecedor | None:
     com_link = [v for v in p.fornecedores if v.url]
     if not com_link:
         return None
-    return min(com_link, key=lambda v: (not v.preferido, v.preco is None, v.preco or 0))
+    return min(com_link, key=lambda v: (not v.preferido, v.preco is None, preco_unitario(v) or 0))
 
 
 def produto_out(p: models.Produto) -> schemas.ProdutoOut:
@@ -56,6 +63,8 @@ def produto_detalhe(p: models.Produto) -> schemas.ProdutoDetalhe:
                 fornecedor_nome=pf.fornecedor.nome,
                 url=pf.url,
                 preco=pf.preco,
+                unidades_por_compra=pf.unidades_por_compra or 1,
+                preco_unitario=preco_unitario(pf),
                 preferido=pf.preferido,
                 monitorado=mercadolivre.extrair_id(pf.url) is not None,
                 preco_atualizado_em=pf.preco_atualizado_em,
