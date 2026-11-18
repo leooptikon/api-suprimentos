@@ -2,7 +2,7 @@ import secrets
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -74,6 +74,24 @@ def locais(db: Session = Depends(get_db)):
     )
     # Ordena aqui: no Postgres, DISTINCT não aceita ORDER BY lower(...) fora das colunas do SELECT
     return sorted(set(db.scalars(stmt)), key=str.lower)
+
+
+@router.post("/locais/renomear", response_model=schemas.RenomearLocalOut, dependencies=ADMIN)
+def renomear_local(dados: schemas.RenomearLocalIn, db: Session = Depends(get_db)):
+    """Troca o nome de um local em todos os produtos de uma vez (inclusive os arquivados).
+
+    Compara sem diferenciar maiúsculas, como o filtro: "armários optikon" e "Armários Optikon" viram o mesmo.
+    Se o novo nome já existir, os dois locais se juntam.
+    """
+    alterados = db.execute(
+        update(models.Produto)
+        .where(func.lower(models.Produto.localizacao) == dados.de.lower())
+        .values(localizacao=dados.para)
+    ).rowcount
+    if not alterados:
+        raise HTTPException(404, "Nenhum produto está nesse local")
+    db.commit()
+    return schemas.RenomearLocalOut(local=dados.para, alterados=alterados)
 
 
 @router.get("/categorias", response_model=list[str])

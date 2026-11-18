@@ -470,6 +470,8 @@ export const api = {
     http<Produto[]>("GET", `/api/produtos${qs(f)}`),
   categorias: () => http<string[]>("GET", "/api/produtos/categorias"),
   locais: () => http<string[]>("GET", "/api/produtos/locais"),
+  renomearLocal: (de: string, para: string) =>
+    http<{ local: string; alterados: number }>("POST", "/api/produtos/locais/renomear", { de, para }),
   produto: (id: number) => http<ProdutoDetalhe>("GET", `/api/produtos/${id}`),
   criarProduto: (d: ProdutoForm) => http<ProdutoDetalhe>("POST", "/api/produtos", d),
   atualizarProduto: (id: number, d: ProdutoForm) => http<ProdutoDetalhe>("PUT", `/api/produtos/${id}`, d),

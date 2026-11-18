@@ -153,6 +153,16 @@ class ProdutoBase(_Base):
     _limpa = field_validator("categoria", "descricao", "localizacao", mode="before")(_vazio_para_none)
 
 
+class RenomearLocalIn(_Base):
+    de: str = Field(min_length=1, max_length=120)
+    para: str = Field(min_length=1, max_length=120)
+
+
+class RenomearLocalOut(BaseModel):
+    local: str
+    alterados: int
+
+
 class ProdutoCreate(ProdutoBase):
     quantidade_inicial: float = Field(default=0, ge=0)
     pessoa_id: int | None = None

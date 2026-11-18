@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, ArrowDownToLine, ArrowUpFromLine, Download, MapPin, Package, PackagePlus, Search, SearchX } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowDownToLine, ArrowUpFromLine, Download, MapPin, Package, PackagePlus, Pencil, Search, SearchX } from "lucide-react";
 import { useDeferredValue, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -7,7 +7,7 @@ import { useAcoes, useInvalidar } from "../components/acoes";
 import { useAuth } from "../components/auth";
 import { BotaoComprar } from "../components/BotaoComprar";
 import { CabecalhoPagina } from "../components/Layout";
-import { Botao, Card, cn, Esqueleto, Input, MedidorEstoque, Select, StatusBadge, Vazio } from "../components/ui";
+import { Botao, Campo, Card, cn, Esqueleto, Input, MedidorEstoque, Modal, Select, StatusBadge, Vazio } from "../components/ui";
 import { api, type StatusEstoque } from "../lib/api";
 import { EtiquetaCategoria, MiniaturaProduto } from "../lib/categorias";
 import { fmtMoeda, fmtNum, SEM_LOCAL } from "../lib/format";
@@ -53,6 +53,7 @@ export function Produtos() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const [renomear, setRenomear] = useState<string | null>(null);
   const lista = produtos.data ?? [];
   const filtrando = !!(buscaAdiada || categoria || local || status);
 
@@ -112,15 +113,22 @@ export function Produtos() {
               </option>
             ))}
           </Select>
-          <Select value={local} onChange={(e) => setParam("local", e.target.value)} className="lg:w-56" aria-label="Local">
-            <option value="">Todos os locais</option>
-            <option value={SEM_LOCAL}>Sem localização</option>
-            {locais.data?.map((l) => (
-              <option key={l} value={l}>
-                {l}
-              </option>
-            ))}
-          </Select>
+          <div className="flex gap-1.5 lg:w-56">
+            <Select value={local} onChange={(e) => setParam("local", e.target.value)} className="min-w-0 flex-1" aria-label="Local">
+              <option value="">Todos os locais</option>
+              <option value={SEM_LOCAL}>Sem localização</option>
+              {locais.data?.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </Select>
+            {admin && local && local !== SEM_LOCAL && (
+              <Botao tamanho="icon" className="h-9 w-9 shrink-0" onClick={() => setRenomear(local)} aria-label={`Renomear o local ${local}`} title="Renomear este local">
+                <Pencil />
+              </Botao>
+            )}
+          </div>
           {!arquivados && (
             <div role="radiogroup" aria-label="Situação do estoque" className="flex gap-1 overflow-x-auto rounded-lg border border-line bg-bg/50 p-1">
               {FILTROS.map((f) => (
@@ -273,6 +281,64 @@ export function Produtos() {
           </div>
         )}
       </Card>
+      {renomear && (
+        <RenomearLocalModal
+          local={renomear}
+          aoFechar={() => setRenomear(null)}
+          aoRenomear={(novo) => {
+            setRenomear(null);
+            setParam("local", novo);
+          }}
+        />
+      )}
     </>
+  );
+}
+
+/** Troca o nome de um local em todos os produtos de uma vez. */
+function RenomearLocalModal({ local, aoFechar, aoRenomear }: { local: string; aoFechar: () => void; aoRenomear: (novo: string) => void }) {
+  const invalidar = useInvalidar();
+  const [nome, setNome] = useState(local);
+  const novo = nome.trim();
+  const salvar = useMutation({
+    mutationFn: () => api.renomearLocal(local, novo),
+    onSuccess: (r) => {
+      toast.success("Local renomeado", { description: `${r.alterados} ${r.alterados === 1 ? "produto passou" : "produtos passaram"} para “${r.local}”` });
+      invalidar();
+      aoRenomear(r.local);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const ok = novo.length > 0 && novo !== local;
+  return (
+    <Modal
+      aberto
+      aoFechar={aoFechar}
+      titulo="Renomear local"
+      descricao={`Todos os produtos em “${local}” passam para o novo nome, inclusive os arquivados.`}
+      icone={<MapPin />}
+      rodape={
+        <>
+          <Botao variante="ghost" onClick={aoFechar}>
+            Cancelar
+          </Botao>
+          <Botao variante="primary" type="submit" form="form-local" disabled={!ok} carregando={salvar.isPending}>
+            Renomear
+          </Botao>
+        </>
+      }
+    >
+      <form
+        id="form-local"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (ok) salvar.mutate();
+        }}
+      >
+        <Campo rotulo="Novo nome" obrigatorio dica="Se já existir um local com esse nome, os dois viram um só.">
+          {(id) => <Input id={id} value={nome} onChange={(e) => setNome(e.target.value)} onFocus={(e) => e.target.select()} maxLength={120} autoFocus autoComplete="off" />}
+        </Campo>
+      </form>
+    </Modal>
   );
 }
