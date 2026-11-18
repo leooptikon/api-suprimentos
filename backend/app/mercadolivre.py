@@ -29,6 +29,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from . import models
+from .db import env
 from .models import agora
 from .planilhas import FUSO
 
@@ -37,10 +38,10 @@ log = logging.getLogger("suprimentos.mercadolivre")
 API = os.getenv("ML_API_URL", "https://api.mercadolibre.com")  # trocável só para testes locais
 AUTH = "https://auth.mercadolivre.com.br/authorization"
 
-CLIENT_ID = os.getenv("ML_CLIENT_ID", "")
-CLIENT_SECRET = os.getenv("ML_CLIENT_SECRET", "")
-REDIRECT_URI = os.getenv("ML_REDIRECT_URI", "")
-HORARIO = os.getenv("ML_HORARIO", "07:00")  # hora local (TZ_ESCRITORIO) da atualização diária
+CLIENT_ID = env("ML_CLIENT_ID")
+CLIENT_SECRET = env("ML_CLIENT_SECRET")
+REDIRECT_URI = env("ML_REDIRECT_URI")
+HORARIO = env("ML_HORARIO") or "07:00"  # hora local (TZ_ESCRITORIO) da atualização diária
 
 
 class ErroML(Exception):

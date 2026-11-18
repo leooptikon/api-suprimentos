@@ -17,6 +17,15 @@ def _carregar_env():
         os.environ.setdefault(chave.strip(), valor.strip().strip('"').strip("'"))
 
 
+def env(nome: str, padrao: str = "") -> str:
+    """Variável de ambiente sem espaços, quebras de linha e aspas em volta.
+
+    No Render os valores são colados num formulário: um espaço ou um Enter a mais na chave
+    do Mercado Livre já faz a API responder "invalid client_id or client_secret".
+    """
+    return os.getenv(nome, padrao).strip().strip('"').strip("'").strip()
+
+
 # Precisa rodar antes de qualquer módulo ler os.getenv (ex.: mercadolivre.py)
 _carregar_env()
 
@@ -25,7 +34,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 def _url_do_banco() -> str:
     """DATABASE_URL (ex.: Postgres do Supabase) ou, sem ela, o SQLite local em data/estoque.db."""
-    url = os.getenv("DATABASE_URL", "").strip()
+    url = env("DATABASE_URL")
     if not url:
         return f"sqlite:///{DATA_DIR / 'estoque.db'}"
     # O Supabase mostra "postgresql://…"; o SQLAlchemy precisa saber que o driver é o psycopg 3

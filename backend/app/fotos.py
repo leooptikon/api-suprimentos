@@ -13,13 +13,13 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from .db import DATA_DIR
+from .db import DATA_DIR, env
 
 log = logging.getLogger(__name__)
 
 # Aceita o endereço como o painel mostra em "Data API" (…supabase.co/rest/v1/) ou só o do projeto
-SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip().rstrip("/").removesuffix("/rest/v1").rstrip("/")
-SUPABASE_KEY = os.getenv("SUPABASE_SECRET_KEY", "").strip()
+SUPABASE_URL = env("SUPABASE_URL").rstrip("/").removesuffix("/rest/v1").rstrip("/")
+SUPABASE_KEY = env("SUPABASE_SECRET_KEY")
 BUCKET = os.getenv("SUPABASE_BUCKET_FOTOS", "fotos").strip() or "fotos"
 NA_NUVEM = bool(SUPABASE_URL and SUPABASE_KEY)
 

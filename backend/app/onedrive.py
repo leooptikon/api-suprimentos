@@ -30,6 +30,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from . import models, relatorios
+from .db import env
 from .models import agora
 from .planilhas import FUSO, pasta_de_trabalho
 
@@ -37,8 +38,8 @@ log = logging.getLogger("suprimentos.onedrive")
 
 LOGIN = os.getenv("MS_LOGIN_URL", "https://login.microsoftonline.com")  # trocáveis só para testes locais
 GRAPH = os.getenv("MS_GRAPH_URL", "https://graph.microsoft.com/v1.0")
-CLIENT_ID = os.getenv("MS_CLIENT_ID", "")
-TENANT_ID = os.getenv("MS_TENANT_ID", "")
+CLIENT_ID = env("MS_CLIENT_ID")
+TENANT_ID = env("MS_TENANT_ID")
 ARQUIVO_PADRAO = os.getenv("ONEDRIVE_ARQUIVO", "Estoque Trace.xlsx")
 INTERVALO = max(5, int(os.getenv("ONEDRIVE_INTERVALO", "120")))  # segundos entre conferências
 ESCOPOS = "offline_access User.Read Files.ReadWrite.All"
