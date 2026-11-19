@@ -184,6 +184,8 @@ class ProdutoOut(ProdutoBase):
     foto_url: str | None = None
     link_compra: str | None = None
     loja_compra: str | None = None
+    # Algum link do Mercado Livre deste produto falhou na última coleta de preço (o motivo)
+    problema_ml: str | None = None
 
 
 class ProdutoDetalhe(ProdutoOut):

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, ArrowDownToLine, ArrowUpFromLine, Download, MapPin, Package, PackagePlus, Pencil, Search, SearchX } from "lucide-react";
+import { AlertTriangle, Archive, ArchiveRestore, ArrowDownToLine, ArrowUpFromLine, Download, MapPin, Package, PackagePlus, Pencil, Search, SearchX } from "lucide-react";
 import { useDeferredValue, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -31,6 +31,7 @@ export function Produtos() {
   const local = params.get("local") ?? "";
   const status = (params.get("status") ?? "") as StatusEstoque | "";
   const arquivados = params.get("arquivados") === "1";
+  const problemaML = params.get("ml") === "problema";
 
   const setParam = (k: string, v: string) => {
     const p = new URLSearchParams(params);
@@ -39,10 +40,13 @@ export function Produtos() {
     setParams(p, { replace: true });
   };
 
-  const filtros = { busca: buscaAdiada, categoria, local, status, arquivados };
+  const filtros = { busca: buscaAdiada, categoria, local, status, arquivados, problema_ml: problemaML || undefined };
   const produtos = useQuery({ queryKey: ["produtos", filtros], queryFn: () => api.produtos(filtros), placeholderData: (a) => a });
   const categorias = useQuery({ queryKey: ["categorias"], queryFn: api.categorias });
   const locais = useQuery({ queryKey: ["locais"], queryFn: api.locais });
+  // Quantos têm link do Mercado Livre com problema (o botão do filtro só aparece se houver algum)
+  const comProblemaML = useQuery({ queryKey: ["produtos", { problema_ml: true }], queryFn: () => api.produtos({ problema_ml: true }) });
+  const totalProblemaML = comProblemaML.data?.length ?? 0;
 
   const restaurar = useMutation({
     mutationFn: api.restaurarProduto,
@@ -55,7 +59,7 @@ export function Produtos() {
 
   const [renomear, setRenomear] = useState<string | null>(null);
   const lista = produtos.data ?? [];
-  const filtrando = !!(buscaAdiada || categoria || local || status);
+  const filtrando = !!(buscaAdiada || categoria || local || status || problemaML);
 
   return (
     <>
@@ -148,6 +152,22 @@ export function Produtos() {
               ))}
             </div>
           )}
+          {!arquivados && (totalProblemaML > 0 || problemaML) && (
+            <button
+              type="button"
+              aria-pressed={problemaML}
+              onClick={() => setParam("ml", problemaML ? "" : "problema")}
+              title="Produtos com link do Mercado Livre que não trouxe preço na última atualização"
+              className={cn(
+                "inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-[13px] whitespace-nowrap transition-colors",
+                problemaML ? "border-warn/50 bg-warn-soft text-warn" : "border-line bg-bg/50 text-muted hover:border-warn/40 hover:text-warn",
+              )}
+            >
+              <AlertTriangle className="size-3.5" />
+              Problema no Mercado Livre
+              <span className="tabular text-xs opacity-80">{totalProblemaML}</span>
+            </button>
+          )}
         </div>
 
         {produtos.isLoading ? (
@@ -201,6 +221,12 @@ export function Produtos() {
                         <div className="min-w-0">
                           <p className="truncate font-medium group-hover:text-primary">{p.nome}</p>
                           <EtiquetaCategoria categoria={p.categoria} className="max-w-full truncate" />
+                          {p.problema_ml && (
+                            <p className="mt-1 flex items-start gap-1.5 text-xs text-warn" title={p.problema_ml}>
+                              <AlertTriangle className="mt-px size-3.5 shrink-0" />
+                              <span className={problemaML ? "whitespace-normal" : "truncate"}>Mercado Livre: {p.problema_ml}</span>
+                            </p>
+                          )}
                         </div>
                       </div>
                     </td>

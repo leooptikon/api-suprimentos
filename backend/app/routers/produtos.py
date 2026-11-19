@@ -32,6 +32,7 @@ def listar(
     local: str | None = Query(None, description="Local (ex.: 'Armário A'). Use '__sem__' para produtos sem local."),
     status: Literal["ok", "baixo", "esgotado"] | None = None,
     arquivados: bool = False,
+    problema_ml: bool = Query(False, description="Só os que têm link do Mercado Livre com erro na última coleta"),
     db: Session = Depends(get_db),
 ):
     stmt = (
@@ -56,6 +57,8 @@ def listar(
         stmt = stmt.where(models.Produto.localizacao.is_(None))
     elif local:
         stmt = stmt.where(func.lower(models.Produto.localizacao) == local.strip().lower())
+    if problema_ml:
+        stmt = stmt.where(models.Produto.fornecedores.any(models.ProdutoFornecedor.erro_coleta.is_not(None)))
 
     produtos = [services.produto_out(p) for p in db.scalars(stmt)]
     if status:

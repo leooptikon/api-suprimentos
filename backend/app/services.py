@@ -50,6 +50,7 @@ def produto_out(p: models.Produto) -> schemas.ProdutoOut:
         foto_url=f"/api/produtos/{p.id}/foto?v={p.foto}" if p.foto else None,
         link_compra=compra.url if compra else None,
         loja_compra=compra.fornecedor.nome if compra else None,
+        problema_ml=next((pf.erro_coleta for pf in p.fornecedores if pf.erro_coleta), None),
     )
 
 

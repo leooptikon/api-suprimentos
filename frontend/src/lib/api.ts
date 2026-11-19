@@ -20,6 +20,8 @@ export interface Produto {
   foto_url: string | null;
   link_compra: string | null;
   loja_compra: string | null;
+  /** Motivo, se algum link do Mercado Livre falhou na última coleta de preço */
+  problema_ml: string | null;
 }
 
 export interface Vinculo {
@@ -466,7 +468,7 @@ export const api = {
 
   dashboard: () => http<Dashboard>("GET", "/api/dashboard"),
 
-  produtos: (f: { busca?: string; categoria?: string; local?: string; status?: string; arquivados?: boolean } = {}) =>
+  produtos: (f: { busca?: string; categoria?: string; local?: string; status?: string; arquivados?: boolean; problema_ml?: boolean } = {}) =>
     http<Produto[]>("GET", `/api/produtos${qs(f)}`),
   categorias: () => http<string[]>("GET", "/api/produtos/categorias"),
   locais: () => http<string[]>("GET", "/api/produtos/locais"),

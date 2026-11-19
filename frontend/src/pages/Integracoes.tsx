@@ -15,7 +15,7 @@ import {
   Unplug,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useInvalidar } from "../components/acoes";
 import { useAuth } from "../components/auth";
@@ -242,7 +242,14 @@ function CartaoMercadoLivre({ s, admin }: { s: StatusML; admin: boolean }) {
                 </p>
                 <p className="mt-1 text-muted">
                   <span className="tabular">{s.ultima.atualizados}</span> de <span className="tabular">{s.ultima.anuncios}</span> anúncios atualizados
-                  {s.ultima.falhas > 0 && <span className="text-warn"> · {s.ultima.falhas} com problema (veja nos produtos)</span>}
+                  {s.ultima.falhas > 0 && (
+                    <>
+                      {" · "}
+                      <Link to="/produtos?ml=problema" className="text-warn underline-offset-2 hover:underline">
+                        {s.ultima.falhas} com problema (ver produtos)
+                      </Link>
+                    </>
+                  )}
                 </p>
                 {s.ultima.mensagem && s.ultima.falhas === s.ultima.anuncios && <p className="mt-1 text-danger">{s.ultima.mensagem}</p>}
               </div>
