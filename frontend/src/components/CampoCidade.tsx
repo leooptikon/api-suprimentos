@@ -22,12 +22,14 @@ export function CampoCidade({
   const [buscando, setBuscando] = useState(false);
   const [lugares, setLugares] = useState<{ nome: string; curto: string | null; lat: number; lng: number }[] | null>(null);
   const [ativo, setAtivo] = useState(0);
+  const [falhou, setFalhou] = useState(false);
 
   // Busca enquanto digita (com uma pausa, para não pedir a cada letra)
   useEffect(() => {
     const q = texto.trim();
     if (q.length < 3) {
       setLugares(null);
+      setFalhou(false);
       return;
     }
     let cancelado = false;
@@ -37,10 +39,14 @@ export function CampoCidade({
         const r = await api.buscarLugar(q);
         if (!cancelado) {
           setLugares(r);
+          setFalhou(false);
           setAtivo(0);
         }
       } catch {
-        if (!cancelado) setLugares([]);
+        if (!cancelado) {
+          setLugares(null);
+          setFalhou(true);
+        }
       } finally {
         if (!cancelado) setBuscando(false);
       }
@@ -100,6 +106,7 @@ export function CampoCidade({
         />
         {buscando && <Loader2 className="absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-subtle" />}
       </div>
+      {falhou && <p className="mt-1.5 text-xs text-danger">Não foi possível buscar agora. Tente de novo.</p>}
       {lugares &&
         (lugares.length === 0 ? (
           <p className="mt-1.5 text-xs text-muted">Nenhuma cidade encontrada. Confira o nome.</p>
