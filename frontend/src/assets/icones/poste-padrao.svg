@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="madeira" x1="0" x2="1">
+      <stop offset="0" stop-color="#6e6052"/><stop offset=".45" stop-color="#9c8b78"/><stop offset="1" stop-color="#5f5347"/>
+    </linearGradient>
+    <linearGradient id="antena" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4f6f8"/><stop offset="1" stop-color="#bcc3cc"/>
+    </linearGradient>
+    <linearGradient id="caixa" x1="0" x2="1">
+      <stop offset="0" stop-color="#e4e6e8"/><stop offset=".6" stop-color="#c9cdd1"/><stop offset="1" stop-color="#a9aeb4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- terra na base -->
+  <ellipse cx="32" cy="60.5" rx="11" ry="2.2" fill="#7a5b3e" opacity=".85"/>
+
+  <!-- poste de madeira -->
+  <path d="M30.2 11h3.6l.9 50h-5.4z" fill="url(#madeira)" stroke="#3f362e" stroke-width=".6"/>
+  <path d="M31.6 16v40M32.8 22v30" stroke="#5a4e42" stroke-width=".4" opacity=".7"/>
+
+  <!-- mãos-francesas e antena Starlink (retangular) -->
+  <path d="M32 21 16.5 8.6M32 21l15.5-12.4M32 13.5h-14M32 13.5h14" stroke="#2c3036" stroke-width="1.2" stroke-linecap="round"/>
+  <rect x="13" y="4" width="38" height="5.4" rx="1.4" fill="url(#antena)" stroke="#6f7781" stroke-width=".7"/>
+  <path d="M15 6.7h34" stroke="#d3d8de" stroke-width=".5"/>
+
+  <!-- caixa hermética -->
+  <rect x="23.5" y="27" width="17" height="13" rx="1.6" fill="url(#caixa)" stroke="#7d838a" stroke-width=".7"/>
+  <path d="M25.5 29h13M25.5 38h13" stroke="#9aa0a7" stroke-width=".45"/>
+  <rect x="37.6" y="32" width="1.2" height="3.2" rx=".5" fill="#6d737a"/>
+
+  <!-- equipamento preto (câmera) -->
+  <rect x="27.4" y="43" width="9.2" height="9" rx="1.6" fill="#1c1f23" stroke="#4b5159" stroke-width=".6"/>
+  <circle cx="32" cy="46.2" r="1.6" fill="#0b0c0e" stroke="#5a616a" stroke-width=".5"/>
+  <circle cx="32" cy="49.8" r=".7" fill="#e3262f"/>
+</svg>

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="concreto" x1="0" x2="1">
+      <stop offset="0" stop-color="#a9a6a0"/><stop offset=".45" stop-color="#dedbd5"/><stop offset="1" stop-color="#9c9993"/>
+    </linearGradient>
+    <linearGradient id="painel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2d5a94"/><stop offset=".55" stop-color="#1b3a66"/><stop offset="1" stop-color="#132a4c"/>
+    </linearGradient>
+    <linearGradient id="caixa" x1="0" x2="1">
+      <stop offset="0" stop-color="#fbfbfa"/><stop offset="1" stop-color="#cfd1d3"/>
+    </linearGradient>
+  </defs>
+
+  <!-- terra na base -->
+  <ellipse cx="32" cy="60.5" rx="11" ry="2.2" fill="#7a5b3e" opacity=".85"/>
+
+  <!-- poste de concreto (afina para cima) -->
+  <path d="M29.4 14h5.2l1.4 47h-8z" fill="url(#concreto)" stroke="#7f7c76" stroke-width=".6"/>
+  <path d="M30.6 24h1.2M33 33h1.4M30.4 44h1.3M33.2 52h1.3" stroke="#8d8a84" stroke-width=".6" stroke-linecap="round"/>
+
+  <!-- suporte e painel solar inclinado -->
+  <path d="M32 15.5 24.5 10M32 15.5l8.5-7.2" stroke="#3a3f46" stroke-width="1.1" stroke-linecap="round"/>
+  <path d="M11 9.8 47.5 3.2l5 9.6-36.4 6.8z" fill="url(#painel)" stroke="#c9ced5" stroke-width="1"/>
+  <path d="M20.2 8.1l5 9.6M29.3 6.5l5 9.6M38.4 4.8l5 9.6M13.5 14.6l36.4-6.7" stroke="#8fb0d8" stroke-width=".45" opacity=".75"/>
+
+  <!-- caixa branca -->
+  <rect x="34.6" y="20.5" width="10.2" height="9.6" rx="1.2" fill="url(#caixa)" stroke="#8e9399" stroke-width=".6"/>
+  <path d="M36 22.4h7.4" stroke="#b5b9be" stroke-width=".4"/>
+
+  <!-- câmera no braço lateral -->
+  <path d="M29.6 24.2h-6.4v1.6" fill="none" stroke="#3a3f46" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="16.4" y="25.2" width="9.6" height="5" rx="2.3" fill="#f6f6f5" stroke="#8e9399" stroke-width=".6"/>
+  <circle cx="17.9" cy="27.7" r="1.4" fill="#16191d"/>
+  <circle cx="17.6" cy="27.3" r=".4" fill="#7fe3ff"/>
+</svg>
