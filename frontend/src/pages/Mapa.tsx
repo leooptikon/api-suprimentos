@@ -86,7 +86,7 @@ export function Mapa() {
       <div className="grid gap-4 xl:grid-cols-[1fr_20rem]">
         <Card className="min-w-0 overflow-hidden">
           {legenda.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 border-b border-line px-4 py-3" role="group" aria-label="Mostrar ou esconder tipos no mapa">
+            <div className="flex flex-wrap gap-1.5 border-b border-line px-4 py-3" role="group" aria-label="Mostrar ou esconder tipos no mapa" data-mapa-manter-zoom>
               {legenda.map((c) => {
                 const ligado = visivel(c);
                 return (

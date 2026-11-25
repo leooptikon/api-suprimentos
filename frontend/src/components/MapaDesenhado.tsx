@@ -116,12 +116,46 @@ export function MapaDesenhado({ pinos }: { pinos: PinoDesenho[] }) {
     return m;
   }, [marcados]);
 
+  // Clique fora do quadro do mapa ou Esc também saem do zoom
+  const caixa = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (foco == null && aberto == null) return;
+    const fora = (e: PointerEvent) => {
+      const alvo = e.target as HTMLElement;
+      // a legenda (liga/desliga tipos) fica fora do desenho, mas não deve tirar o zoom
+      if (caixa.current && !caixa.current.contains(alvo) && !alvo.closest?.("[data-mapa-manter-zoom]")) {
+        setAberto(null);
+        setFoco(null);
+      }
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setAberto(null);
+        setFoco(null);
+      }
+    };
+    document.addEventListener("pointerdown", fora);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("pointerdown", fora);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [foco, aberto]);
+
   const pinoAberto = marcados.find((m) => m.p.id === aberto);
   const pct = (x: number, y: number) => ({ left: `${((x - cam.x) / cam.w) * 100}%`, top: `${((y - cam.y) / cam.h) * 100}%` });
   const infoEstado = sobre ?? foco;
 
   return (
-    <div className="relative size-full overflow-hidden" onClick={() => setAberto(null)}>
+    <div
+      ref={caixa}
+      className="relative size-full overflow-hidden"
+      // Clique fora dos estados (mar, países vizinhos): fecha o quadro e volta para o Brasil inteiro
+      onClick={() => {
+        setAberto(null);
+        setFoco(null);
+      }}
+    >
       <svg
         viewBox={`${cam.x} ${cam.y} ${cam.w} ${cam.h}`}
         preserveAspectRatio="xMidYMid meet"
