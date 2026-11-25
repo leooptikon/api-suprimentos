@@ -1,5 +1,5 @@
 import { Maximize2, Pencil, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { ItemNoMapa } from "../lib/api";
 import { ALTURA, ESTADOS, LARGURA, projetar } from "../lib/brasil";
 import { fmtNum } from "../lib/format";
@@ -57,27 +57,35 @@ function caixaDoEstado(i: number): Caixa {
   return { x: x0 - m, y: y0 - m, w: w + 2 * m, h: h + 2 * m };
 }
 
-/** Anima a "câmera" (viewBox) de uma caixa para outra. */
-function useCamera(alvo: Caixa) {
-  const [cam, setCam] = useState(alvo);
-  const atual = useRef(alvo);
-  useEffect(() => {
+/** "Câmera" (viewBox): vai para uma caixa com animação (estado clicado) ou na hora (rodinha, arrasto). */
+function useCamera() {
+  const [cam, setCam] = useState(BRASIL);
+  const atual = useRef(BRASIL);
+  const raf = useRef(0);
+  const irPara = useCallback((alvo: Caixa, animar = true) => {
+    cancelAnimationFrame(raf.current);
+    if (!animar) {
+      atual.current = alvo;
+      setCam(alvo);
+      return;
+    }
     const de = atual.current;
     const inicio = performance.now();
-    let raf = 0;
     const passo = (t: number) => {
       const k = Math.min(1, (t - inicio) / 420);
       const e = 1 - Math.pow(1 - k, 3);
       const c = { x: de.x + (alvo.x - de.x) * e, y: de.y + (alvo.y - de.y) * e, w: de.w + (alvo.w - de.w) * e, h: de.h + (alvo.h - de.h) * e };
       atual.current = c;
       setCam(c);
-      if (k < 1) raf = requestAnimationFrame(passo);
+      if (k < 1) raf.current = requestAnimationFrame(passo);
     };
-    raf = requestAnimationFrame(passo);
-    return () => cancelAnimationFrame(raf);
-  }, [alvo]);
-  return cam;
+    raf.current = requestAnimationFrame(passo);
+  }, []);
+  useEffect(() => () => cancelAnimationFrame(raf.current), []);
+  return { cam, atual, irPara };
 }
+
+const ZOOM_MAX = 16; // até 16x o Brasil inteiro
 
 /**
  * Mapa do Brasil desenhado no estilo do site (estados lisos, contorno fino, brilho de destaque),
@@ -87,8 +95,80 @@ export function MapaDesenhado({ pinos, aoEditar }: { pinos: PinoDesenho[]; aoEdi
   const [foco, setFoco] = useState<number | null>(null);
   const [aberto, setAberto] = useState<string | null>(null);
   const [sobre, setSobre] = useState<number | null>(null);
-  const cam = useCamera(useMemo(() => (foco == null ? BRASIL : caixaDoEstado(foco)), [foco]));
+  const { cam, atual, irPara } = useCamera();
   const zoom = LARGURA / cam.w; // >1 quando aproximado: alfinetes e textos mantêm o tamanho na tela
+  const aproximado = zoom > 1.02;
+  const focar = useCallback(
+    (i: number | null) => {
+      setFoco(i);
+      irPara(i == null ? BRASIL : caixaDoEstado(i));
+    },
+    [irPara],
+  );
+  const voltar = useCallback(() => {
+    setAberto(null);
+    focar(null);
+  }, [focar]);
+
+  // ---------- Rodinha do mouse (zoom no ponto do cursor) e arrastar para mover ----------
+  const svg = useRef<SVGSVGElement>(null);
+  const arrasto = useRef<{ x: number; y: number; cam: Caixa; px: number; moveu: boolean } | null>(null);
+  const arrastou = useRef(false); // um arrasto não vale como clique (não abre estado nem alfinete)
+  const paraDesenho = (cx: number, cy: number) => {
+    const ctm = svg.current?.getScreenCTM();
+    if (!ctm) return null;
+    const p = new DOMPoint(cx, cy).matrixTransform(ctm.inverse());
+    return { x: p.x, y: p.y, porPixel: 1 / ctm.a };
+  };
+  useEffect(() => {
+    const el = svg.current;
+    if (!el) return;
+    // passive: false — senão o navegador rola a página em vez de dar zoom
+    const roda = (e: WheelEvent) => {
+      e.preventDefault();
+      const p = paraDesenho(e.clientX, e.clientY);
+      if (!p) return;
+      const c = atual.current;
+      const w = Math.min(LARGURA, Math.max(LARGURA / ZOOM_MAX, c.w * Math.exp(e.deltaY * 0.0018)));
+      if (w >= LARGURA) {
+        setFoco(null);
+        irPara(BRASIL, false);
+        return;
+      }
+      const k = w / c.w;
+      irPara({ x: p.x - (p.x - c.x) * k, y: p.y - (p.y - c.y) * k, w, h: c.h * k }, false);
+    };
+    el.addEventListener("wheel", roda, { passive: false });
+    return () => el.removeEventListener("wheel", roda);
+  }, [atual, irPara]);
+
+  const iniciarArrasto = (e: ReactPointerEvent) => {
+    if (e.button !== 0 || !aproximado) return;
+    const p = paraDesenho(e.clientX, e.clientY);
+    arrasto.current = { x: e.clientX, y: e.clientY, cam: atual.current, px: p?.porPixel ?? 1, moveu: false };
+  };
+  const arrastar = (e: ReactPointerEvent) => {
+    const a = arrasto.current;
+    if (!a) return;
+    const dx = e.clientX - a.x;
+    const dy = e.clientY - a.y;
+    if (!a.moveu && Math.hypot(dx, dy) < 4) return;
+    if (!a.moveu) svg.current?.setPointerCapture(e.pointerId);
+    a.moveu = true;
+    irPara({ ...a.cam, x: a.cam.x - dx * a.px, y: a.cam.y - dy * a.px }, false);
+  };
+  const soltar = () => {
+    if (arrasto.current?.moveu) arrastou.current = true;
+    arrasto.current = null;
+  };
+  // Clique de verdade (não arrasto)? Consome a marca do arrasto
+  const foiClique = () => {
+    if (arrastou.current) {
+      arrastou.current = false;
+      return false;
+    }
+    return true;
+  };
 
   // Posição no desenho + estado de cada alfinete; vários tipos na mesma cidade ficam lado a lado
   const marcados = useMemo(() => {
@@ -120,20 +200,14 @@ export function MapaDesenhado({ pinos, aoEditar }: { pinos: PinoDesenho[]; aoEdi
   // Clique fora do quadro do mapa ou Esc também saem do zoom
   const caixa = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (foco == null && aberto == null) return;
+    if (foco == null && aberto == null && !aproximado) return;
     const fora = (e: PointerEvent) => {
       const alvo = e.target as HTMLElement;
       // a legenda (liga/desliga tipos) fica fora do desenho, mas não deve tirar o zoom
-      if (caixa.current && !caixa.current.contains(alvo) && !alvo.closest?.("[data-mapa-manter-zoom]")) {
-        setAberto(null);
-        setFoco(null);
-      }
+      if (caixa.current && !caixa.current.contains(alvo) && !alvo.closest?.("[data-mapa-manter-zoom]")) voltar();
     };
     const esc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setAberto(null);
-        setFoco(null);
-      }
+      if (e.key === "Escape") voltar();
     };
     document.addEventListener("pointerdown", fora);
     document.addEventListener("keydown", esc);
@@ -141,7 +215,7 @@ export function MapaDesenhado({ pinos, aoEditar }: { pinos: PinoDesenho[]; aoEdi
       document.removeEventListener("pointerdown", fora);
       document.removeEventListener("keydown", esc);
     };
-  }, [foco, aberto]);
+  }, [foco, aberto, aproximado, voltar]);
 
   const pinoAberto = marcados.find((m) => m.p.id === aberto);
   const pct = (x: number, y: number) => ({ left: `${((x - cam.x) / cam.w) * 100}%`, top: `${((y - cam.y) / cam.h) * 100}%` });
@@ -153,14 +227,18 @@ export function MapaDesenhado({ pinos, aoEditar }: { pinos: PinoDesenho[]; aoEdi
       className="relative size-full overflow-hidden"
       // Clique fora dos estados (mar, países vizinhos): fecha o quadro e volta para o Brasil inteiro
       onClick={() => {
-        setAberto(null);
-        setFoco(null);
+        if (foiClique()) voltar();
       }}
     >
       <svg
+        ref={svg}
+        onPointerDown={iniciarArrasto}
+        onPointerMove={arrastar}
+        onPointerUp={soltar}
+        onPointerCancel={soltar}
         viewBox={`${cam.x} ${cam.y} ${cam.w} ${cam.h}`}
         preserveAspectRatio="xMidYMid meet"
-        className="size-full select-none"
+        className={cn("size-full touch-none select-none", aproximado && "cursor-grab active:cursor-grabbing")}
         role="img"
         aria-label="Mapa do Brasil com os equipamentos"
       >
@@ -200,8 +278,9 @@ export function MapaDesenhado({ pinos, aoEditar }: { pinos: PinoDesenho[]; aoEdi
                 onMouseLeave={() => setSobre((s) => (s === i ? null : s))}
                 onClick={(ev) => {
                   ev.stopPropagation();
+                  if (!foiClique()) return;
                   setAberto(null);
-                  setFoco((f) => (f === i ? null : i));
+                  focar(foco === i ? null : i);
                 }}
               >
                 <title>{e.nome}</title>
@@ -231,7 +310,7 @@ export function MapaDesenhado({ pinos, aoEditar }: { pinos: PinoDesenho[]; aoEdi
               className="cursor-pointer"
               onClick={(ev) => {
                 ev.stopPropagation();
-                setAberto(ativo ? null : p.id);
+                if (foiClique()) setAberto(ativo ? null : p.id);
               }}
             >
               <title>{`${p.nome} · ${fmtNum(p.total)}${p.lugar ? ` · ${p.lugar}` : ""}`}</title>
@@ -260,13 +339,12 @@ export function MapaDesenhado({ pinos, aoEditar }: { pinos: PinoDesenho[]; aoEdi
         </div>
       )}
 
-      {foco != null && (
+      {(foco != null || aproximado) && (
         <button
           type="button"
           onClick={(ev) => {
             ev.stopPropagation();
-            setFoco(null);
-            setAberto(null);
+            voltar();
           }}
           className="absolute top-3 right-3 inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-line bg-surface/90 px-3 text-xs text-muted backdrop-blur hover:text-fg"
         >
