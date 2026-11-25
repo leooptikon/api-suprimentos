@@ -4,6 +4,8 @@ Local de cada coisa: a cidade escolhida nela (unidade ou envio); sem cidade, o l
 Cada ponto do mapa junta as coisas do mesmo tipo no mesmo lugar (um alfinete por tipo).
 """
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -17,9 +19,14 @@ router = APIRouter(prefix="/api", tags=["Mapa"], dependencies=[Depends(usuario_a
 
 
 class ItemNoPonto(BaseModel):
+    id: int  # da unidade ou da retirada (envio)
+    tipo: Literal["unidade", "envio"]
+    origem: Literal["cidade", "projeto"]  # o local vem da cidade dele ou do projeto
     texto: str  # nº de série, ou nome do produto
     detalhe: str | None = None  # situação, ou quantidade
+    projeto_id: int | None = None
     projeto: str | None = None
+    cidade: schemas.Cidade | None = None  # própria
 
 
 class Ponto(BaseModel):
@@ -92,7 +99,9 @@ def mapa(db: Session = Depends(get_db)):
     )
     for u in unidades:
         juntar(u.proprio.prefixo, u.proprio.nome, True, _onde(u, u.projeto), u.projeto, 1,
-               ItemNoPonto(texto=u.numero_serie, detalhe=ROTULO.get(u.status), projeto=u.projeto.nome if u.projeto else None))
+               ItemNoPonto(id=u.id, tipo="unidade", origem="cidade" if services.cidade_de(u) else "projeto",
+                           texto=u.numero_serie, detalhe=ROTULO.get(u.status), projeto_id=u.projeto_id,
+                           projeto=u.projeto.nome if u.projeto else None, cidade=services.cidade_de(u)))
 
     envios = db.scalars(
         select(models.Movimentacao)
@@ -104,8 +113,10 @@ def mapa(db: Session = Depends(get_db)):
     for m in envios:
         qtd = abs(m.quantidade)
         juntar(f"P{m.produto_id}", m.produto.nome, False, _onde(m, m.projeto), m.projeto, qtd,
-               ItemNoPonto(texto=m.produto.nome, detalhe=f"{services.formatar(qtd)} {m.produto.unidade}",
-                           projeto=m.projeto.nome if m.projeto else None))
+               ItemNoPonto(id=m.id, tipo="envio", origem="cidade" if services.cidade_de(m) else "projeto",
+                           texto=m.produto.nome, detalhe=f"{services.formatar(qtd)} {m.produto.unidade}",
+                           projeto_id=m.projeto_id, projeto=m.projeto.nome if m.projeto else None,
+                           cidade=services.cidade_de(m)))
 
     return MapaOut(pontos=list(pontos.values()), sem_local=sorted(sem.values(), key=lambda s: (s.projeto_nome or "", s.nome)))
 
@@ -161,3 +172,20 @@ def mudar_cidade(mov_id: int, dados: CidadeIn, db: Session = Depends(get_db)):
         projeto_nome=m.projeto.nome if m.projeto else None, cidade=services.cidade_de(m),
         lugar=onde[2] if onde else None, no_mapa=onde is not None,
     )
+
+
+@router.patch("/proprios/unidades/{unidade_id}/cidade", response_model=schemas.UnidadeOut)
+def mudar_cidade_unidade(unidade_id: int, dados: CidadeIn, db: Session = Depends(get_db)):
+    """Muda (ou tira) só a cidade de uma unidade, sem mexer na situação. Qualquer pessoa com login."""
+    from .proprios import _unidade_out
+
+    u = db.scalar(select(models.Unidade).where(models.Unidade.id == unidade_id).options(
+        joinedload(models.Unidade.proprio), joinedload(models.Unidade.projeto)))
+    if not u:
+        raise HTTPException(404, "Unidade não encontrada")
+    c = dados.cidade
+    u.cidade, u.lat, u.lng = (c.nome, c.lat, c.lng) if c else (None, None, None)
+    u.atualizado_em = models.agora()
+    db.commit()
+    db.refresh(u)
+    return _unidade_out(u)

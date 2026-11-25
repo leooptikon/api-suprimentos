@@ -259,7 +259,20 @@ export interface PontoMapa {
   lng: number;
   lugar: string | null;
   total: number;
-  itens: { texto: string; detalhe: string | null; projeto: string | null }[];
+  itens: ItemNoMapa[];
+}
+
+/** Uma unidade ou um envio dentro de um alfinete */
+export interface ItemNoMapa {
+  id: number;
+  tipo: "unidade" | "envio";
+  /** O local vem da cidade dele ou do projeto */
+  origem: "cidade" | "projeto";
+  texto: string;
+  detalhe: string | null;
+  projeto_id: number | null;
+  projeto: string | null;
+  cidade: Cidade | null;
 }
 
 export interface MapaDados {
@@ -603,6 +616,7 @@ export const api = {
   mapa: () => http<MapaDados>("GET", "/api/mapa"),
   envios: (produtoId: number) => http<Envio[]>("GET", `/api/produtos/${produtoId}/envios`),
   mudarCidadeEnvio: (movId: number, cidade: Cidade | null) => http<Envio>("PATCH", `/api/movimentacoes/${movId}/cidade`, { cidade }),
+  mudarCidadeUnidade: (id: number, cidade: Cidade | null) => http<Unidade>("PATCH", `/api/proprios/unidades/${id}/cidade`, { cidade }),
   definirLocalProjeto: (id: number, d: { lat: number; lng: number; local_nome: string | null }) =>
     http<{ nome: string; lat: number; lng: number }>("PUT", `/api/projetos/${id}/local`, d),
   tirarLocalProjeto: (id: number) => http<void>("DELETE", `/api/projetos/${id}/local`),

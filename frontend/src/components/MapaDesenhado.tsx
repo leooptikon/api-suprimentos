@@ -1,5 +1,6 @@
-import { Maximize2, X } from "lucide-react";
+import { Maximize2, Pencil, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ItemNoMapa } from "../lib/api";
 import { ALTURA, ESTADOS, LARGURA, projetar } from "../lib/brasil";
 import { fmtNum } from "../lib/format";
 import { cn } from "./ui";
@@ -16,7 +17,7 @@ export interface PinoDesenho {
   nome: string;
   lugar: string | null;
   total: number;
-  itens: { texto: string; detalhe: string | null; projeto: string | null }[];
+  itens: ItemNoMapa[];
 }
 
 type Caixa = { x: number; y: number; w: number; h: number };
@@ -52,7 +53,7 @@ function caixaDoEstado(i: number): Caixa {
   const y0 = Math.min(...ys);
   const w = Math.max(...xs) - x0;
   const h = Math.max(...ys) - y0;
-  const m = Math.max(w, h) * 0.18 + 20; // folga em volta
+  const m = Math.max(w, h) * 0.05 + 6; // folga pequena em volta: o estado ocupa quase todo o quadro
   return { x: x0 - m, y: y0 - m, w: w + 2 * m, h: h + 2 * m };
 }
 
@@ -82,7 +83,7 @@ function useCamera(alvo: Caixa) {
  * Mapa do Brasil desenhado no estilo do site (estados lisos, contorno fino, brilho de destaque),
  * com alfinetes coloridos. Clique num estado para aproximar; no alfinete, para ver o que tem ali.
  */
-export function MapaDesenhado({ pinos }: { pinos: PinoDesenho[] }) {
+export function MapaDesenhado({ pinos, aoEditar }: { pinos: PinoDesenho[]; aoEditar: (item: ItemNoMapa, pino: PinoDesenho) => void }) {
   const [foco, setFoco] = useState<number | null>(null);
   const [aberto, setAberto] = useState<string | null>(null);
   const [sobre, setSobre] = useState<number | null>(null);
@@ -292,12 +293,26 @@ export function MapaDesenhado({ pinos }: { pinos: PinoDesenho[] }) {
           </p>
           <ul className="mt-1 max-h-40 space-y-1 overflow-y-auto">
             {pinoAberto.p.itens.map((it, j) => (
-              <li key={j}>
-                <div className="flex justify-between gap-3">
-                  <span className="font-mono text-xs">{it.texto}</span>
-                  {it.detalhe && <span className="text-xs text-muted">{it.detalhe}</span>}
+              <li key={j} className="group/item flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex justify-between gap-3">
+                    <span className="font-mono text-xs">{it.texto}</span>
+                    {it.detalhe && <span className="text-xs text-muted">{it.detalhe}</span>}
+                  </div>
+                  <div className="text-[11px] text-subtle">
+                    {it.origem === "projeto" ? "local do projeto" : "cidade própria"}
+                    {it.projeto && ` · ${it.projeto}`}
+                  </div>
                 </div>
-                {it.projeto && <div className="text-[11px] text-subtle">{it.projeto}</div>}
+                <button
+                  type="button"
+                  onClick={() => aoEditar(it, pinoAberto.p)}
+                  aria-label={`Mudar a localização de ${it.texto}`}
+                  title="Mudar a localização"
+                  className="grid size-6 shrink-0 cursor-pointer place-items-center rounded-md text-subtle hover:bg-surface-2 hover:text-primary"
+                >
+                  <Pencil className="size-3.5" />
+                </button>
               </li>
             ))}
           </ul>

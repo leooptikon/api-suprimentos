@@ -9,7 +9,7 @@ import { urlIcone } from "../components/IconeProprio";
 import { MapaDesenhado } from "../components/MapaDesenhado";
 import { CabecalhoPagina } from "../components/Layout";
 import { Botao, Campo, Card, CardHeader, cn, Esqueleto, Modal, Vazio } from "../components/ui";
-import { api, type Cidade } from "../lib/api";
+import { api, type Cidade, type ItemNoMapa } from "../lib/api";
 import { fmtNum } from "../lib/format";
 
 /* ---------- Cores dos alfinetes ---------- */
@@ -47,6 +47,7 @@ export function Mapa() {
   const projetos = useQuery({ queryKey: ["projetos"], queryFn: api.projetos });
   const [escolhas, setEscolhas] = useState<Record<string, boolean>>({});
   const [editar, setEditar] = useState<{ id: number; nome: string } | null>(null);
+  const [editarItem, setEditarItem] = useState<{ item: ItemNoMapa; nome: string } | null>(null);
 
   const pontos = dados.data?.pontos ?? [];
   const semLocal = dados.data?.sem_local ?? [];
@@ -114,6 +115,7 @@ export function Mapa() {
               <Esqueleto className="size-full rounded-none" />
             ) : (
               <MapaDesenhado
+                aoEditar={(item, pino) => setEditarItem({ item, nome: pino.nome })}
                 pinos={noMapa.map((p) => ({
                   id: `${p.lat},${p.lng}-${p.chave}`,
                   lat: p.lat,
@@ -173,6 +175,20 @@ export function Mapa() {
         </Card>
       </div>
 
+      {editarItem && (
+        <ItemLocalModal
+          item={editarItem.item}
+          nome={editarItem.nome}
+          projetoLocal={(projetos.data ?? []).find((p) => p.id === editarItem.item.projeto_id)?.local_nome ?? null}
+          podeMudarProjeto={admin}
+          aoFechar={() => setEditarItem(null)}
+          aoMudarProjeto={() => {
+            const it = editarItem.item;
+            setEditarItem(null);
+            if (it.projeto_id != null) setEditar({ id: it.projeto_id, nome: it.projeto ?? "" });
+          }}
+        />
+      )}
       {editar && (
         <LocalModal
           projeto={(projetos.data ?? []).find((p) => p.id === editar.id) ?? { id: editar.id, nome: editar.nome, lat: null, lng: null, local_nome: null }}
@@ -228,6 +244,81 @@ function LocalModal({
       <Campo rotulo="Cidade" dica="Unidades e envios deste projeto sem cidade própria aparecem aqui no mapa.">
         {(id) => <CampoCidade id={id} valor={cidade} aoMudar={setCidade} />}
       </Campo>
+    </Modal>
+  );
+}
+
+/* ---------- Mudar a localização de um item (ao clicar no alfinete) ---------- */
+function ItemLocalModal({
+  item,
+  nome,
+  projetoLocal,
+  podeMudarProjeto,
+  aoFechar,
+  aoMudarProjeto,
+}: {
+  item: ItemNoMapa;
+  nome: string;
+  projetoLocal: string | null;
+  podeMudarProjeto: boolean;
+  aoFechar: () => void;
+  aoMudarProjeto: () => void;
+}) {
+  const invalidar = useInvalidar();
+  const [cidade, setCidade] = useState<Cidade | null>(item.cidade);
+  const salvar = useMutation({
+    mutationFn: async () => {
+      if (item.tipo === "unidade") await api.mudarCidadeUnidade(item.id, cidade);
+      else await api.mudarCidadeEnvio(item.id, cidade);
+    },
+    onSuccess: () => {
+      toast.success(cidade ? `${item.texto}: ${cidade.nome}` : `${item.texto}: volta para o local do projeto`);
+      invalidar();
+      aoFechar();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const titulo = item.tipo === "unidade" ? item.texto : `${nome} · ${item.detalhe ?? ""}`;
+  return (
+    <Modal
+      aberto
+      aoFechar={aoFechar}
+      titulo="Mudar a localização"
+      descricao={item.projeto ? `${titulo} · ${item.projeto}` : titulo}
+      icone={<MapPinned />}
+      rodape={
+        <>
+          <Botao variante="ghost" onClick={aoFechar}>
+            Cancelar
+          </Botao>
+          <Botao variante="primary" onClick={() => salvar.mutate()} carregando={salvar.isPending}>
+            Salvar
+          </Botao>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Campo
+          rotulo="Cidade"
+          dica={
+            item.projeto
+              ? `Vazio: usa o local do projeto${projetoLocal ? ` (${projetoLocal})` : " (ainda sem local)"}.`
+              : "Sem projeto: precisa de uma cidade para aparecer no mapa."
+          }
+        >
+          {(id) => <CampoCidade id={id} valor={cidade} aoMudar={setCidade} />}
+        </Campo>
+        {item.origem === "projeto" && item.projeto_id != null && podeMudarProjeto && (
+          <div className="rounded-xl border border-dashed border-line px-4 py-3 text-sm text-muted">
+            Este item está no mapa pelo local do projeto <strong className="font-medium text-fg">{item.projeto}</strong>. Se o projeto todo
+            mudou de lugar,{" "}
+            <button type="button" onClick={aoMudarProjeto} className="cursor-pointer font-medium text-primary hover:underline">
+              mude o local do projeto
+            </button>
+            .
+          </div>
+        )}
+      </div>
     </Modal>
   );
 }
