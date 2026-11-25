@@ -6,8 +6,8 @@ from . import mercadolivre, models, schemas
 
 
 def cidade_de(obj) -> schemas.Cidade | None:
-    """Cidade própria de uma unidade ou de um envio (retirada), se tiver."""
-    if obj.cidade and obj.lat is not None and obj.lng is not None:
+    """Cidade própria de uma unidade ou de um envio (retirada), se tiver. Sem coordenadas = fora do Brasil."""
+    if obj.cidade:
         return schemas.Cidade(nome=obj.cidade, lat=obj.lat, lng=obj.lng)
     return None
 

@@ -802,7 +802,7 @@ function LocalizacaoProduto({ produto }: { produto: Produto }) {
                   {e.projeto_nome && <span className="text-muted"> · {e.projeto_nome}</span>}
                 </p>
                 <p className="truncate text-xs text-subtle">
-                  {e.lugar ? (e.cidade ? e.lugar : `${e.lugar} (local do projeto)`) : "Fora do mapa: sem cidade nem local do projeto"}
+                  {e.fora_do_brasil ? `${e.lugar} (fora do Brasil)` : e.lugar ? (e.cidade ? e.lugar : `${e.lugar} (local do projeto)`) : "Fora do mapa: sem cidade nem local do projeto"}
                   {" · "}
                   {fmtRelativo(e.criado_em)}
                   {e.pessoa_nome && ` · ${e.pessoa_nome}`}

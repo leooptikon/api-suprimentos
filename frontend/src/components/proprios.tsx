@@ -3,7 +3,7 @@ import { Factory, History, Minus, Plus, Repeat, Search, Trash2, Wrench, X } from
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { api, type Cidade, type Produto, type ProprioDetalhe, type ProprioForm, type StatusUnidade, type Unidade } from "../lib/api";
+import { api, foraDoBrasil, type Cidade, type Produto, type ProprioDetalhe, type ProprioForm, type StatusUnidade, type Unidade } from "../lib/api";
 import { MiniaturaProduto } from "../lib/categorias";
 import { fmtDataHora, fmtNum } from "../lib/format";
 import { BadgeStatusUnidade, ORDEM_STATUS, STATUS_UNIDADE, sugerirPrefixo } from "../lib/proprios";
@@ -657,7 +657,9 @@ export function UnidadeModal({ unidade, aoFechar }: { unidade: Unidade; aoFechar
         <Campo
           rotulo="Cidade"
           dica={
-            cidade
+            foraDoBrasil(cidade)
+              ? undefined
+              : cidade
               ? "Aparece no mapa nesta cidade."
               : projetoLocal
                 ? `Vazio: usa o local do projeto (${projetoLocal}).`

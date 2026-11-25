@@ -279,6 +279,8 @@ export interface MapaDados {
   pontos: PontoMapa[];
   /** Coisas num projeto sem local e sem cidade própria */
   sem_local: { projeto_id: number | null; projeto_nome: string | null; chave: string; nome: string; proprio: boolean; total: number }[];
+  /** Coisas fora do Brasil (sem alfinete), por lugar e tipo */
+  fora: { chave: string; nome: string; proprio: boolean; lugar: string; total: number; itens: ItemNoMapa[] }[];
 }
 
 /** Envio (retirada) de um produto do estoque, para a aba Localização */
@@ -293,14 +295,17 @@ export interface Envio {
   /** Onde aparece no mapa: a cidade própria ou o local do projeto */
   lugar: string | null;
   no_mapa: boolean;
+  fora_do_brasil: boolean;
 }
 
-/** Cidade escolhida na busca, já com as coordenadas (para o mapa) */
+/** Cidade escolhida na busca, já com as coordenadas (para o mapa). Sem coordenadas = fora do Brasil ("Portugal, Lisboa") */
 export interface Cidade {
   nome: string;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
 }
+
+export const foraDoBrasil = (c: Cidade | null | undefined) => !!c && (c.lat == null || c.lng == null);
 
 export interface Unidade {
   id: number;
@@ -609,6 +614,7 @@ export const api = {
   concluirML: (codigo_ou_url: string) => http<StatusML>("POST", "/api/mercadolivre/concluir", { codigo_ou_url }),
   desconectarML: () => http<void>("POST", "/api/mercadolivre/desconectar"),
   atualizarML: () => http<ExecucaoColeta>("POST", "/api/mercadolivre/atualizar"),
+  lugaresFora: () => http<string[]>("GET", "/api/mapa/lugares-fora"),
   historicoPrecos: (produtoId: number) => http<PontoPreco[]>("GET", `/api/mercadolivre/historico/${produtoId}`),
 
   projetos: () => http<Projeto[]>("GET", "/api/projetos"),

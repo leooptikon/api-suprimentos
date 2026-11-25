@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, ArrowLeft, Factory, Layers, MapPin, Minus, Pencil, Plus, Repeat, Search, ShoppingCart, Undo2, Wrench } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Factory, Globe, Layers, MapPin, Minus, Pencil, Plus, Repeat, Search, ShoppingCart, Undo2, Wrench } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -9,7 +9,7 @@ import { useAuth } from "../components/auth";
 import { CabecalhoPagina } from "../components/Layout";
 import { MontarModal, ProprioModal, UnidadeModal } from "../components/proprios";
 import { Badge, Botao, Card, CardHeader, cn, Confirmar, Esqueleto, Input, Select, Vazio } from "../components/ui";
-import { api, type Proprio, type StatusUnidade, type Unidade } from "../lib/api";
+import { api, foraDoBrasil, type Proprio, type StatusUnidade, type Unidade } from "../lib/api";
 import { MiniaturaProduto } from "../lib/categorias";
 import { fmtNum, fmtRelativo } from "../lib/format";
 import { BadgeStatusUnidade, ORDEM_STATUS, STATUS_UNIDADE } from "../lib/proprios";
@@ -281,7 +281,7 @@ export function ListaUnidades({ proprioId }: { proprioId?: number }) {
                     {u.projeto_nome ?? u.local ?? (!u.cidade && <span className="text-subtle">—</span>)}
                     {u.cidade && (
                       <span className="flex items-center gap-1 text-xs text-subtle">
-                        <MapPin className="size-3 shrink-0" />
+                        {foraDoBrasil(u.cidade) ? <Globe className="size-3 shrink-0" /> : <MapPin className="size-3 shrink-0" />}
                         {u.cidade.nome}
                       </span>
                     )}

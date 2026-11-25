@@ -1,23 +1,29 @@
-import { Loader2, MapPin, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Globe, Loader2, MapPin, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { api, type Cidade } from "../lib/api";
-import { Input } from "./ui";
+import { api, foraDoBrasil, type Cidade } from "../lib/api";
+import { Input, InputSugestoes } from "./ui";
 
 /**
  * Campo "Cidade": digita, escolhe uma das cidades sugeridas e pronto — as coordenadas vêm junto,
  * então o mapa já sabe onde marcar. Vazio = usa o local do projeto.
+ * "Fica fora do Brasil?": vira texto livre ("Portugal, Lisboa"), sem alfinete — aparece na lista "Fora do Brasil" do mapa.
  */
 export function CampoCidade({
   id,
   valor,
   aoMudar,
   placeholder = "Digite a cidade, ex.: Macaé",
+  permitirFora = true,
 }: {
   id?: string;
   valor: Cidade | null;
   aoMudar: (c: Cidade | null) => void;
   placeholder?: string;
+  /** Mostra a opção "Fica fora do Brasil?" (o local do projeto precisa de coordenadas, então lá não) */
+  permitirFora?: boolean;
 }) {
+  const [fora, setFora] = useState(() => foraDoBrasil(valor));
   const [texto, setTexto] = useState("");
   const [buscando, setBuscando] = useState(false);
   const [lugares, setLugares] = useState<{ nome: string; curto: string | null; lat: number; lng: number }[] | null>(null);
@@ -62,6 +68,8 @@ export function CampoCidade({
     setTexto("");
     setLugares(null);
   };
+
+  if (fora) return <CampoFora id={id} valor={valor} aoMudar={aoMudar} aoVoltar={() => { aoMudar(null); setFora(false); }} />;
 
   if (valor) {
     return (
@@ -127,6 +135,61 @@ export function CampoCidade({
             ))}
           </ul>
         ))}
+      {permitirFora && (
+        <button
+          type="button"
+          onClick={() => {
+            setFora(true);
+            setTexto("");
+            setLugares(null);
+            setFalhou(false);
+          }}
+          className="mt-1.5 inline-flex cursor-pointer items-center gap-1 text-xs text-muted hover:text-primary"
+        >
+          <Globe className="size-3.5" /> Fica fora do Brasil?
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Lugar fora do Brasil: texto livre, sugerindo os já usados (para não ter "EUA" e "Estados Unidos"). */
+function CampoFora({
+  id,
+  valor,
+  aoMudar,
+  aoVoltar,
+}: {
+  id?: string;
+  valor: Cidade | null;
+  aoMudar: (c: Cidade | null) => void;
+  aoVoltar: () => void;
+}) {
+  const usados = useQuery({ queryKey: ["lugares-fora"], queryFn: api.lugaresFora, staleTime: 60_000 });
+  const texto = foraDoBrasil(valor) ? valor!.nome : "";
+  return (
+    <div>
+      <div className="relative">
+        <Globe className="pointer-events-none absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2 text-primary" />
+        <InputSugestoes
+          id={id}
+          autoFocus
+          value={texto}
+          sugestoes={usados.data ?? []}
+          onChange={(e) => {
+            const t = e.target.value.slice(0, 160);
+            aoMudar(t.trim() ? { nome: t, lat: null, lng: null } : null);
+          }}
+          placeholder="País e cidade, ex.: Portugal, Lisboa"
+          className="pl-9"
+        />
+      </div>
+      <p className="mt-1.5 text-xs text-muted">
+        Fora do Brasil não aparece no mapa: fica na lista <strong className="font-medium">Fora do Brasil</strong>, ao lado.{" "}
+        <button type="button" onClick={aoVoltar} className="cursor-pointer font-medium text-primary hover:underline">
+          Escolher cidade do Brasil
+        </button>
+      </p>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { FolderKanban, LocateFixed, MapPinned, MapPinOff } from "lucide-react";
+import { FolderKanban, Globe, LocateFixed, MapPinned, MapPinOff } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useInvalidar } from "../components/acoes";
@@ -9,7 +9,7 @@ import { urlIcone } from "../components/IconeProprio";
 import { MapaDesenhado } from "../components/MapaDesenhado";
 import { CabecalhoPagina } from "../components/Layout";
 import { Botao, Campo, Card, CardHeader, cn, Esqueleto, Modal, Vazio } from "../components/ui";
-import { api, type Cidade, type ItemNoMapa } from "../lib/api";
+import { api, foraDoBrasil, type Cidade, type ItemNoMapa } from "../lib/api";
 import { fmtNum } from "../lib/format";
 
 /* ---------- Cores dos alfinetes ---------- */
@@ -51,16 +51,17 @@ export function Mapa() {
 
   const pontos = dados.data?.pontos ?? [];
   const semLocal = dados.data?.sem_local ?? [];
+  const fora = dados.data?.fora ?? [];
 
   // Legenda: todos os tipos (no mapa ou esperando local), com o total de cada um
   const legenda = useMemo(() => {
     const m = new Map<string, Camada>();
-    for (const c of [...pontos, ...semLocal]) {
+    for (const c of [...pontos, ...semLocal, ...fora]) {
       const atual = m.get(c.chave);
       m.set(c.chave, { chave: c.chave, nome: c.nome, proprio: c.proprio, cor: corDe(c), total: (atual?.total ?? 0) + c.total });
     }
     return [...m.values()].sort((a, b) => Number(b.proprio) - Number(a.proprio) || a.nome.localeCompare(b.nome));
-  }, [pontos, semLocal]);
+  }, [pontos, semLocal, fora]);
   const visivel = (c: { chave: string; nome: string; proprio: boolean }) => escolhas[c.chave] ?? visivelDeInicio(c);
 
   const noMapa = pontos.filter(visivel);
@@ -76,6 +77,18 @@ export function Mapa() {
     }
     return [...m.values()];
   }, [semLocal]);
+
+  // Fora do Brasil, por lugar (cada lugar com os tipos e os itens)
+  const foraPorLugar = useMemo(() => {
+    const m = new Map<string, { lugar: string; grupos: typeof fora }>();
+    for (const f of fora) {
+      const k = f.lugar.toLocaleLowerCase();
+      const g = m.get(k) ?? { lugar: f.lugar, grupos: [] };
+      g.grupos.push(f);
+      m.set(k, g);
+    }
+    return [...m.values()];
+  }, [fora]);
 
   return (
     <>
@@ -133,14 +146,15 @@ export function Mapa() {
           </div>
         </Card>
 
-        <Card className="min-w-0 self-start">
+        <div className="flex min-w-0 flex-col gap-4 self-start">
+        <Card className="min-w-0">
           <CardHeader
             titulo="Sem local no mapa"
             descricao={semLocalPorProjeto.length ? "Projetos sem local; as coisas deles não têm cidade própria" : undefined}
             icone={<MapPinOff />}
           />
           {semLocalPorProjeto.length === 0 ? (
-            <Vazio icone={<MapPinned />} titulo={legenda.length ? "Tudo está no mapa" : "Nada mandado para projetos ou cidades ainda"} />
+            <Vazio icone={<MapPinned />} titulo={fora.length ? "Nenhum projeto sem local" : legenda.length ? "Tudo está no mapa" : "Nada mandado para projetos ou cidades ainda"} />
           ) : (
             <ul className="divide-y divide-line">
               {semLocalPorProjeto.map((g) => (
@@ -173,6 +187,44 @@ export function Mapa() {
             (Mudar situação) ou na aba Localização do produto.
           </p>
         </Card>
+
+        {foraPorLugar.length > 0 && (
+          <Card className="min-w-0">
+            <CardHeader titulo="Fora do Brasil" descricao="Não aparecem no mapa. Clique num item para mudar o lugar." icone={<Globe />} />
+            <ul className="divide-y divide-line">
+              {foraPorLugar.map((l) => (
+                <li key={l.lugar} className="px-4 py-3">
+                  <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+                    <Globe className="size-3.5 shrink-0 text-primary" />
+                    <span className="truncate">{l.lugar}</span>
+                  </p>
+                  {l.grupos.map((g) => (
+                    <div key={g.chave} className="mt-1.5">
+                      <p className="flex items-center gap-1.5 text-xs text-muted">
+                        <span className="size-2 rounded-full ring-1 ring-black/25" style={{ background: corDe(g) }} />
+                        {g.nome} <span className="tabular">{fmtNum(g.total)}</span>
+                      </p>
+                      <div className="mt-1 flex flex-wrap gap-1 pl-3.5">
+                        {g.itens.map((it) => (
+                          <button
+                            key={`${it.tipo}-${it.id}`}
+                            type="button"
+                            onClick={() => setEditarItem({ item: it, nome: g.nome })}
+                            className="cursor-pointer rounded-md border border-line bg-surface-2 px-2 py-0.5 text-xs text-fg hover:border-primary"
+                            title={it.projeto ? `Projeto: ${it.projeto}` : undefined}
+                          >
+                            {it.tipo === "unidade" ? it.texto : it.detalhe}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+        </div>
       </div>
 
       {editarItem && (
@@ -213,7 +265,7 @@ function LocalModal({
   );
   const salvar = useMutation({
     mutationFn: async () => {
-      if (cidade) await api.definirLocalProjeto(projeto.id, { lat: cidade.lat, lng: cidade.lng, local_nome: cidade.nome });
+      if (cidade && cidade.lat != null && cidade.lng != null) await api.definirLocalProjeto(projeto.id, { lat: cidade.lat, lng: cidade.lng, local_nome: cidade.nome });
       else await api.tirarLocalProjeto(projeto.id);
     },
     onSuccess: () => {
@@ -242,7 +294,7 @@ function LocalModal({
       }
     >
       <Campo rotulo="Cidade" dica="Unidades e envios deste projeto sem cidade própria aparecem aqui no mapa.">
-        {(id) => <CampoCidade id={id} valor={cidade} aoMudar={setCidade} />}
+        {(id) => <CampoCidade id={id} valor={cidade} aoMudar={setCidade} permitirFora={false} />}
       </Campo>
     </Modal>
   );
@@ -301,7 +353,9 @@ function ItemLocalModal({
         <Campo
           rotulo="Cidade"
           dica={
-            item.projeto
+            foraDoBrasil(cidade)
+              ? undefined
+              : item.projeto
               ? `Vazio: usa o local do projeto${projetoLocal ? ` (${projetoLocal})` : " (ainda sem local)"}.`
               : "Sem projeto: precisa de uma cidade para aparecer no mapa."
           }

@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class _Base(BaseModel):
@@ -194,11 +194,25 @@ class ProdutoDetalhe(ProdutoOut):
 
 # ---------- Movimentação ----------
 class Cidade(BaseModel):
-    """Cidade escolhida na busca (já com as coordenadas, para o mapa)."""
+    """Cidade escolhida na busca (já com as coordenadas, para o mapa).
+    Sem coordenadas = fora do Brasil: o nome é texto livre ("Portugal, Lisboa") e não vira alfinete."""
 
     nome: str = Field(min_length=1, max_length=160)
-    lat: float = Field(ge=-90, le=90)
-    lng: float = Field(ge=-180, le=180)
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
+
+    @model_validator(mode="after")
+    def _as_duas_ou_nenhuma(self):
+        if (self.lat is None) != (self.lng is None):
+            raise ValueError("Informe latitude e longitude juntas")
+        self.nome = " ".join(self.nome.split())
+        if not self.nome:
+            raise ValueError("Informe o lugar")
+        return self
+
+    @property
+    def fora_do_brasil(self) -> bool:
+        return self.lat is None
 
 
 class MovimentacaoIn(_Base):
