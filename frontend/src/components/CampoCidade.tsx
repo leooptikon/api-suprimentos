@@ -20,7 +20,7 @@ export function CampoCidade({
   valor: Cidade | null;
   aoMudar: (c: Cidade | null) => void;
   placeholder?: string;
-  /** Mostra a opção "Fica fora do Brasil?" (o local do projeto precisa de coordenadas, então lá não) */
+  /** Mostra a opção "Fica fora do Brasil?" */
   permitirFora?: boolean;
 }) {
   const [fora, setFora] = useState(() => foraDoBrasil(valor));

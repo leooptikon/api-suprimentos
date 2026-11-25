@@ -623,7 +623,7 @@ export const api = {
   envios: (produtoId: number) => http<Envio[]>("GET", `/api/produtos/${produtoId}/envios`),
   mudarCidadeEnvio: (movId: number, cidade: Cidade | null) => http<Envio>("PATCH", `/api/movimentacoes/${movId}/cidade`, { cidade }),
   mudarCidadeUnidade: (id: number, cidade: Cidade | null) => http<Unidade>("PATCH", `/api/proprios/unidades/${id}/cidade`, { cidade }),
-  definirLocalProjeto: (id: number, d: { lat: number; lng: number; local_nome: string | null }) =>
+  definirLocalProjeto: (id: number, d: { lat: number | null; lng: number | null; local_nome: string | null }) =>
     http<{ nome: string; lat: number; lng: number }>("PUT", `/api/projetos/${id}/local`, d),
   tirarLocalProjeto: (id: number) => http<void>("DELETE", `/api/projetos/${id}/local`),
   origemProjetos: () => http<OrigemProjetos>("GET", "/api/projetos/origem"),

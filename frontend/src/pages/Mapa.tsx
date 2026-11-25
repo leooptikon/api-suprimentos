@@ -261,11 +261,15 @@ function LocalModal({
 }) {
   const invalidar = useInvalidar();
   const [cidade, setCidade] = useState<Cidade | null>(
-    projeto.lat != null && projeto.lng != null ? { nome: projeto.local_nome ?? "Local definido", lat: projeto.lat, lng: projeto.lng } : null,
+    projeto.lat != null && projeto.lng != null
+      ? { nome: projeto.local_nome ?? "Local definido", lat: projeto.lat, lng: projeto.lng }
+      : projeto.local_nome
+        ? { nome: projeto.local_nome, lat: null, lng: null } // fora do Brasil
+        : null,
   );
   const salvar = useMutation({
     mutationFn: async () => {
-      if (cidade && cidade.lat != null && cidade.lng != null) await api.definirLocalProjeto(projeto.id, { lat: cidade.lat, lng: cidade.lng, local_nome: cidade.nome });
+      if (cidade) await api.definirLocalProjeto(projeto.id, { lat: cidade.lat, lng: cidade.lng, local_nome: cidade.nome });
       else await api.tirarLocalProjeto(projeto.id);
     },
     onSuccess: () => {
@@ -293,8 +297,11 @@ function LocalModal({
         </>
       }
     >
-      <Campo rotulo="Cidade" dica="Unidades e envios deste projeto sem cidade própria aparecem aqui no mapa.">
-        {(id) => <CampoCidade id={id} valor={cidade} aoMudar={setCidade} permitirFora={false} />}
+      <Campo
+        rotulo="Cidade"
+        dica={foraDoBrasil(cidade) ? undefined : "Unidades e envios deste projeto sem cidade própria aparecem aqui no mapa."}
+      >
+        {(id) => <CampoCidade id={id} valor={cidade} aoMudar={setCidade} />}
       </Campo>
     </Modal>
   );

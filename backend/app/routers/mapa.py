@@ -76,9 +76,23 @@ def _fora(obj) -> bool:
     return bool(obj.cidade) and (obj.lat is None or obj.lng is None)
 
 
-def _onde(obj, projeto: models.Projeto | None) -> tuple[float, float, str | None] | None:
-    """Onde aparece no mapa do Brasil. Fora do Brasil = None (não usa o local do projeto)."""
+def _projeto_fora(projeto: models.Projeto | None) -> bool:
+    """Projeto com local fora do Brasil: tem o nome do lugar, mas não as coordenadas."""
+    return bool(projeto and projeto.local_nome) and (projeto.lat is None or projeto.lng is None)
+
+
+def _lugar_fora(obj, projeto: models.Projeto | None) -> str | None:
+    """Lugar fora do Brasil onde a coisa está: o próprio ou, sem cidade própria, o do projeto."""
     if _fora(obj):
+        return obj.cidade
+    if not obj.cidade and _projeto_fora(projeto):
+        return projeto.local_nome
+    return None
+
+
+def _onde(obj, projeto: models.Projeto | None) -> tuple[float, float, str | None] | None:
+    """Onde aparece no mapa do Brasil. Fora do Brasil = None."""
+    if _lugar_fora(obj, projeto):
         return None
     if obj.cidade and obj.lat is not None and obj.lng is not None:
         return obj.lat, obj.lng, obj.cidade
@@ -97,9 +111,10 @@ def mapa(db: Session = Depends(get_db)):
     fora: dict[tuple, Fora] = {}
 
     def juntar(chave, nome, proprio, obj, projeto, qtd, item):
-        if _fora(obj):
-            k = (obj.cidade.casefold(), chave)
-            f = fora.get(k) or Fora(chave=chave, nome=nome, proprio=proprio, lugar=obj.cidade, total=0, itens=[])
+        lugar_fora = _lugar_fora(obj, projeto)
+        if lugar_fora:
+            k = (lugar_fora.casefold(), chave)
+            f = fora.get(k) or Fora(chave=chave, nome=nome, proprio=proprio, lugar=lugar_fora, total=0, itens=[])
             f.total += qtd
             f.itens.append(item)
             fora[k] = f
@@ -159,6 +174,9 @@ def lugares_fora(db: Session = Depends(get_db)):
     for tabela in (models.Unidade, models.Movimentacao):
         for nome in db.scalars(select(tabela.cidade).where(tabela.cidade.is_not(None), tabela.lat.is_(None)).distinct()):
             nomes.setdefault(nome.casefold(), nome)
+    for nome in db.scalars(select(models.Projeto.local_nome).where(models.Projeto.local_nome.is_not(None),
+                                                                  models.Projeto.lat.is_(None)).distinct()):
+        nomes.setdefault(nome.casefold(), nome)
     return sorted(nomes.values(), key=str.casefold)
 
 
@@ -193,8 +211,8 @@ def envios(produto_id: int, db: Session = Depends(get_db)):
             id=m.id, criado_em=m.criado_em.isoformat(), quantidade=abs(m.quantidade),
             pessoa_nome=m.pessoa.nome if m.pessoa else None, projeto_id=m.projeto_id,
             projeto_nome=m.projeto.nome if m.projeto else None, cidade=services.cidade_de(m),
-            lugar=m.cidade if _fora(m) else (onde[2] if onde else None), no_mapa=onde is not None,
-            fora_do_brasil=_fora(m),
+            lugar=_lugar_fora(m, m.projeto) or (onde[2] if onde else None), no_mapa=onde is not None,
+            fora_do_brasil=_lugar_fora(m, m.projeto) is not None,
         ))
     return saida
 
@@ -213,8 +231,8 @@ def mudar_cidade(mov_id: int, dados: CidadeIn, db: Session = Depends(get_db)):
         id=m.id, criado_em=m.criado_em.isoformat(), quantidade=abs(m.quantidade),
         pessoa_nome=m.pessoa.nome if m.pessoa else None, projeto_id=m.projeto_id,
         projeto_nome=m.projeto.nome if m.projeto else None, cidade=services.cidade_de(m),
-        lugar=m.cidade if _fora(m) else (onde[2] if onde else None), no_mapa=onde is not None,
-        fora_do_brasil=_fora(m),
+        lugar=_lugar_fora(m, m.projeto) or (onde[2] if onde else None), no_mapa=onde is not None,
+        fora_do_brasil=_lugar_fora(m, m.projeto) is not None,
     )
 
 

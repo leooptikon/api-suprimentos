@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -66,15 +66,26 @@ class PastaIn(BaseModel):
 
 
 class LocalIn(BaseModel):
-    lat: float = Field(ge=-90, le=90)
-    lng: float = Field(ge=-180, le=180)
+    """Sem coordenadas = projeto fora do Brasil: só o nome ("Portugal, Lisboa"), sem alfinete."""
+
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
     local_nome: str | None = Field(default=None, max_length=255)
+
+    @model_validator(mode="after")
+    def _confere(self):
+        if (self.lat is None) != (self.lng is None):
+            raise ValueError("Informe latitude e longitude juntas")
+        self.local_nome = " ".join((self.local_nome or "").split()) or None
+        if self.lat is None and not self.local_nome:
+            raise ValueError("Informe o lugar fora do Brasil")
+        return self
 
 
 class LugarOut(BaseModel):
     nome: str
-    lat: float
-    lng: float
+    lat: float | None  # None = fora do Brasil
+    lng: float | None
     curto: str | None = None  # "Macaé, RJ"
 
 
@@ -90,7 +101,7 @@ def definir_local(projeto_id: int, dados: LocalIn, db: Session = Depends(get_db)
     p = db.get(models.Projeto, projeto_id)
     if not p:
         raise HTTPException(404, "Projeto não encontrado")
-    p.lat, p.lng, p.local_nome = dados.lat, dados.lng, (dados.local_nome or "").strip() or None
+    p.lat, p.lng, p.local_nome = dados.lat, dados.lng, dados.local_nome
     db.commit()
     return LugarOut(nome=p.local_nome or "", lat=p.lat, lng=p.lng)
 
