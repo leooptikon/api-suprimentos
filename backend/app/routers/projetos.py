@@ -1,6 +1,10 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+import json
+import urllib.parse
+import urllib.request
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
@@ -18,7 +22,9 @@ ADMIN = [Depends(admin_requerido)]
 class UnidadeNoProjeto(BaseModel):
     id: int
     numero_serie: str
+    proprio_id: int
     proprio_nome: str
+    proprio_prefixo: str
     status: StatusUnidade
 
 
@@ -36,6 +42,9 @@ class ProjetoOut(BaseModel):
     nome: str  # exatamente o nome da pasta: "21.40 - TM ENGENHARIA"
     url: str | None
     no_onedrive: bool  # False = a pasta sumiu do OneDrive (não aparece mais para escolher)
+    lat: float | None = None
+    lng: float | None = None
+    local_nome: str | None = None
     unidades: list[UnidadeNoProjeto]
     itens: list[ItemNoProjeto] = []
 
@@ -60,6 +69,75 @@ class PastaIn(BaseModel):
     link: str = Field(min_length=8, max_length=2000)
 
 
+class LocalIn(BaseModel):
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    local_nome: str | None = Field(default=None, max_length=255)
+
+
+class LugarOut(BaseModel):
+    nome: str
+    lat: float
+    lng: float
+    curto: str | None = None  # "Macaé, RJ"
+
+
+# ---------- Localização (para o mapa) ----------
+NOMINATIM = "https://nominatim.openstreetmap.org/search"
+
+
+@router.get("/geocodificar", response_model=list[LugarOut])
+def geocodificar(q: str = Query(min_length=3, max_length=200)):
+    """Busca cidade/endereço no Brasil (OpenStreetMap/Nominatim, grátis) para posicionar o projeto no mapa."""
+    url = NOMINATIM + "?" + urllib.parse.urlencode(
+        {"q": q, "format": "jsonv2", "countrycodes": "br", "limit": 6, "accept-language": "pt-BR", "addressdetails": 1}
+    )
+    # A política do Nominatim pede um User-Agent que identifique o aplicativo
+    req = urllib.request.Request(url, headers={"User-Agent": "Trace-Optikon/1.0 (controle de estoque)"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+    except Exception:
+        raise HTTPException(502, "Não foi possível buscar o endereço agora; tente de novo ou clique no mapa")
+    lugares, vistos = [], set()
+    for d in dados:  # a mesma cidade costuma vir 2x (cidade e município): fica a primeira
+        curto = _curto(d)
+        if curto in vistos:
+            continue
+        vistos.add(curto)
+        lugares.append(LugarOut(nome=d.get("display_name", "")[:255], lat=float(d["lat"]), lng=float(d["lon"]), curto=curto))
+    return lugares
+
+
+def _curto(d: dict) -> str:
+    """ "Macaé, Rio de Janeiro, Região Sudeste, Brasil" → "Macaé, RJ" (cidade + sigla do estado)."""
+    a = d.get("address") or {}
+    lugar = a.get("city") or a.get("town") or a.get("village") or a.get("municipality") or a.get("suburb") or d.get("name")
+    uf = (a.get("ISO3166-2-lvl4") or "").removeprefix("BR-") or a.get("state")
+    partes = [p for p in (lugar, uf) if p]
+    return ", ".join(partes)[:160] if partes else (d.get("display_name") or "")[:160]
+
+
+@router.put("/{projeto_id}/local", response_model=LugarOut, dependencies=ADMIN)
+def definir_local(projeto_id: int, dados: LocalIn, db: Session = Depends(get_db)):
+    p = db.get(models.Projeto, projeto_id)
+    if not p:
+        raise HTTPException(404, "Projeto não encontrado")
+    p.lat, p.lng, p.local_nome = dados.lat, dados.lng, (dados.local_nome or "").strip() or None
+    db.commit()
+    return LugarOut(nome=p.local_nome or "", lat=p.lat, lng=p.lng)
+
+
+@router.delete("/{projeto_id}/local", status_code=204, dependencies=ADMIN)
+def tirar_local(projeto_id: int, db: Session = Depends(get_db)):
+    p = db.get(models.Projeto, projeto_id)
+    if not p:
+        raise HTTPException(404, "Projeto não encontrado")
+    p.lat = p.lng = p.local_nome = None
+    db.commit()
+    return Response(status_code=204)
+
+
 @router.get("", response_model=list[ProjetoOut])
 def listar(db: Session = Depends(get_db)):
     projetos = sorted(db.scalars(select(models.Projeto)), key=lambda p: (od.chave_codigo(p.codigo), p.nome))
@@ -72,7 +150,8 @@ def listar(db: Session = Depends(get_db)):
     por_projeto: dict[int, list[UnidadeNoProjeto]] = {}
     for u in unidades:
         por_projeto.setdefault(u.projeto_id, []).append(
-            UnidadeNoProjeto(id=u.id, numero_serie=u.numero_serie, proprio_nome=u.proprio.nome, status=u.status)
+            UnidadeNoProjeto(id=u.id, numero_serie=u.numero_serie, proprio_id=u.proprio_id, proprio_nome=u.proprio.nome,
+                             proprio_prefixo=u.proprio.prefixo, status=u.status)
         )
     # Retiradas com projeto, somadas por produto (as desfeitas ficam de fora)
     linhas = db.execute(
@@ -90,7 +169,8 @@ def listar(db: Session = Depends(get_db)):
                 ItemNoProjeto(produto_id=pid, produto_nome=nome, unidade=unidade, quantidade=abs(total))
             )
     return [
-        ProjetoOut(id=p.id, nome=p.nome, url=p.url, no_onedrive=p.no_onedrive, unidades=por_projeto.get(p.id, []),
+        ProjetoOut(id=p.id, nome=p.nome, url=p.url, no_onedrive=p.no_onedrive, lat=p.lat, lng=p.lng,
+                   local_nome=p.local_nome, unidades=por_projeto.get(p.id, []),
                    itens=sorted(itens.get(p.id, []), key=lambda i: i.produto_nome.lower()))
         for p in projetos
     ]

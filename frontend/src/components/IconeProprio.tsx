@@ -13,6 +13,11 @@ export function temIcone(prefixo: string) {
   return prefixo in ICONES;
 }
 
+/** Endereço do desenho do produto próprio (ex.: para usar dentro do alfinete do mapa). */
+export function urlIcone(prefixo: string): string | undefined {
+  return ICONES[prefixo];
+}
+
 /** Desenho do produto próprio; sem desenho cadastrado, não mostra nada (quem chama usa o ícone padrão). */
 export function IconeProprio({ prefixo, className }: { prefixo: string; className?: string }) {
   const src = ICONES[prefixo];

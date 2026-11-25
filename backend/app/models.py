@@ -165,6 +165,10 @@ class Movimentacao(Base):
     montagem_id: Mapped[int | None] = mapped_column(ForeignKey("montagens.id"), index=True)
     # Opcional, na retirada: para qual projeto (pasta do OneDrive) o item foi mandado
     projeto_id: Mapped[int | None] = mapped_column(ForeignKey("projetos.id", ondelete="SET NULL"))
+    # Opcional, na retirada: cidade para onde foi (mapa). Vazia = usa o local do projeto
+    cidade: Mapped[str | None] = mapped_column(String(160))
+    lat: Mapped[float | None] = mapped_column(Float)
+    lng: Mapped[float | None] = mapped_column(Float)
     criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora, index=True)
 
     produto: Mapped[Produto] = relationship(back_populates="movimentacoes")
@@ -258,6 +262,10 @@ class Projeto(Base):
     url: Mapped[str | None] = mapped_column(String(1000))
     # False quando a pasta sumiu do OneDrive (apagada/movida): sai da lista de escolha, mas as unidades mantêm
     no_onedrive: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Onde fica, para o mapa (definido à mão: busca de endereço ou clique no mapa)
+    lat: Mapped[float | None] = mapped_column(Float)
+    lng: Mapped[float | None] = mapped_column(Float)
+    local_nome: Mapped[str | None] = mapped_column(String(255))  # ex.: "Macaé, RJ"
     criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora)
     atualizado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora, onupdate=agora)
 
@@ -276,6 +284,10 @@ class Unidade(Base):
     projeto_id: Mapped[int | None] = mapped_column(ForeignKey("projetos.id"), index=True)
     # Texto livre de antes dos projetos; não é mais preenchido, só exibido nas unidades antigas
     local: Mapped[str | None] = mapped_column(String(160))
+    # Cidade onde a unidade está (para o mapa). Vazia = usa o local do projeto
+    cidade: Mapped[str | None] = mapped_column(String(160))
+    lat: Mapped[float | None] = mapped_column(Float)
+    lng: Mapped[float | None] = mapped_column(Float)
     observacao: Mapped[str | None] = mapped_column(Text)
     criado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora)
     atualizado_em: Mapped[datetime] = mapped_column(UTCDateTime, default=agora, onupdate=agora)

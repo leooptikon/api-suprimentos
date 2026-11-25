@@ -10,7 +10,7 @@ from sqlalchemy import inspect, text
 from .db import Base, engine
 from . import manter_acordado, mercadolivre, onedrive
 from .db import SessionLocal
-from .routers import autenticacao, cadastros, compras, evolucao, integracoes, movimentacoes, produtos, proprios
+from .routers import autenticacao, cadastros, compras, evolucao, integracoes, mapa, movimentacoes, produtos, proprios
 from .routers import onedrive as rotas_onedrive
 from .routers import projetos
 
@@ -55,6 +55,16 @@ def _migrar():
             con.execute(text("ALTER TABLE movimentacoes ADD COLUMN projeto_id INTEGER REFERENCES projetos(id) ON DELETE SET NULL"))
         if "estornada" not in movs:
             con.execute(text("ALTER TABLE movimentacoes ADD COLUMN estornada BOOLEAN NOT NULL DEFAULT FALSE"))
+        # Cidade (mapa) nas unidades e nos envios (retiradas)
+        for tabela in ("unidades", "movimentacoes"):
+            cols = {c["name"] for c in insp.get_columns(tabela)}
+            for col, tipo in [("cidade", "VARCHAR(160)"), ("lat", "FLOAT"), ("lng", "FLOAT")]:
+                if col not in cols:
+                    con.execute(text(f"ALTER TABLE {tabela} ADD COLUMN {col} {tipo}"))
+        projetos_cols = {c["name"] for c in insp.get_columns("projetos")}
+        for col, tipo in [("lat", "FLOAT"), ("lng", "FLOAT"), ("local_nome", "VARCHAR(255)")]:
+            if col not in projetos_cols:
+                con.execute(text(f"ALTER TABLE projetos ADD COLUMN {col} {tipo}"))
         # Projetos (pastas do OneDrive) no lugar do "local" das unidades
         for tabela in ("unidades", "eventos_unidade"):
             if "projeto_id" not in {c["name"] for c in insp.get_columns(tabela)}:
@@ -94,6 +104,7 @@ app.include_router(evolucao.router)
 app.include_router(integracoes.router)
 app.include_router(rotas_onedrive.router)
 app.include_router(projetos.router)
+app.include_router(mapa.router)
 
 
 @app.on_event("startup")

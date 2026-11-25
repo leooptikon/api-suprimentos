@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, ArrowLeft, Factory, Layers, Minus, Pencil, Plus, Repeat, Search, ShoppingCart, Undo2, Wrench } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Factory, Layers, MapPin, Minus, Pencil, Plus, Repeat, Search, ShoppingCart, Undo2, Wrench } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -278,7 +278,13 @@ export function ListaUnidades({ proprioId }: { proprioId?: number }) {
                     <BadgeStatusUnidade status={u.status} />
                   </td>
                   <td className="hidden max-w-[280px] truncate px-4 py-3 text-muted lg:table-cell" title={u.projeto_nome ?? u.local ?? undefined}>
-                    {u.projeto_nome ?? u.local ?? <span className="text-subtle">—</span>}
+                    {u.projeto_nome ?? u.local ?? (!u.cidade && <span className="text-subtle">—</span>)}
+                    {u.cidade && (
+                      <span className="flex items-center gap-1 text-xs text-subtle">
+                        <MapPin className="size-3 shrink-0" />
+                        {u.cidade.nome}
+                      </span>
+                    )}
                   </td>
                   <td className="hidden px-4 py-3 text-xs text-subtle sm:table-cell">{fmtRelativo(u.atualizado_em)}</td>
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>

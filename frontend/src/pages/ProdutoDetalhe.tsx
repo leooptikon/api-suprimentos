@@ -9,6 +9,8 @@ import {
   History,
   Link2,
   MapPin,
+  MapPinned,
+  MapPinOff,
   ImagePlus,
   LineChart as IconeGrafico,
   Pencil,
@@ -27,9 +29,10 @@ import { toast } from "sonner";
 import { useAcoes, useInvalidar } from "../components/acoes";
 import { useAuth } from "../components/auth";
 import { BotaoComprar } from "../components/BotaoComprar";
+import { CampoCidade } from "../components/CampoCidade";
 import { CabecalhoPagina } from "../components/Layout";
 import { Badge, Botao, Campo, Card, CardHeader, cn, Confirmar, Esqueleto, Input, MedidorEstoque, Modal, Select, StatusBadge, Switch, Vazio } from "../components/ui";
-import { api, type Movimentacao, type ProdutoDetalhe as Produto, type Vinculo } from "../lib/api";
+import { api, type Cidade, type Envio, type Movimentacao, type ProdutoDetalhe as Produto, type Vinculo } from "../lib/api";
 import { reduzirImagem } from "../lib/imagem";
 import { EtiquetaCategoria, IconeCategoria } from "../lib/categorias";
 import { fmtDataHora, fmtDiaMes, fmtMoeda, fmtNum, fmtRelativo } from "../lib/format";
@@ -249,6 +252,7 @@ export function ProdutoDetalhe() {
         <div className="flex flex-col gap-4 xl:order-1 xl:col-span-2">
         {p.fornecedores.some((f) => f.monitorado) && <HistoricoPrecos produto={p} />}
         {historico.data && historico.data.length >= 2 && <GraficoSaldo movs={historico.data} produto={p} />}
+        <LocalizacaoProduto produto={p} />
         <Card>
           <CardHeader titulo="Histórico" descricao="Todas as entradas, retiradas e ajustes deste item" icone={<History />} />
           {historico.isLoading ? (
@@ -759,3 +763,96 @@ function HistoricoPrecos({ produto }: { produto: Produto }) {
   );
 }
 
+/** Aba "Localização": para onde este item foi mandado (retiradas com projeto ou cidade) e onde aparece no mapa. */
+function LocalizacaoProduto({ produto }: { produto: Produto }) {
+  const envios = useQuery({ queryKey: ["envios", produto.id], queryFn: () => api.envios(produto.id) });
+  const [todas, setTodas] = useState(false);
+  const [editar, setEditar] = useState<Envio | null>(null);
+  const lista = (envios.data ?? []).filter((e) => todas || e.projeto_id != null || e.cidade != null);
+  const outras = (envios.data ?? []).length - (envios.data ?? []).filter((e) => e.projeto_id != null || e.cidade != null).length;
+  if (envios.isLoading || (!envios.data?.length && !todas)) return null;
+  return (
+    <Card>
+      <CardHeader
+        titulo="Localização"
+        descricao="Para onde foi mandado e onde aparece no mapa"
+        icone={<MapPinned />}
+        acao={
+          outras > 0 && (
+            <Botao tamanho="sm" variante="ghost" onClick={() => setTodas((t) => !t)}>
+              {todas ? "Só os enviados" : `Ver todas as retiradas (${outras} sem destino)`}
+            </Botao>
+          )
+        }
+      />
+      {lista.length === 0 ? (
+        <Vazio icone={<MapPinned />} titulo="Nada mandado para projetos ou cidades" texto="Na retirada, escolha o projeto ou a cidade para onde vai." />
+      ) : (
+        <ul className="divide-y divide-line">
+          {lista.map((e) => (
+            <li key={e.id} className="flex items-center gap-3 px-5 py-3">
+              <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg border", e.no_mapa ? "border-primary/30 bg-primary-soft text-primary" : "border-line text-subtle")}>
+                {e.no_mapa ? <MapPin className="size-4" /> : <MapPinOff className="size-4" />}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm">
+                  <span className="tabular font-medium">
+                    {fmtNum(e.quantidade)} {produto.unidade}
+                  </span>
+                  {e.projeto_nome && <span className="text-muted"> · {e.projeto_nome}</span>}
+                </p>
+                <p className="truncate text-xs text-subtle">
+                  {e.lugar ? (e.cidade ? e.lugar : `${e.lugar} (local do projeto)`) : "Fora do mapa: sem cidade nem local do projeto"}
+                  {" · "}
+                  {fmtRelativo(e.criado_em)}
+                  {e.pessoa_nome && ` · ${e.pessoa_nome}`}
+                </p>
+              </div>
+              <Botao tamanho="sm" onClick={() => setEditar(e)}>
+                {e.cidade ? "Mudar cidade" : "Definir cidade"}
+              </Botao>
+            </li>
+          ))}
+        </ul>
+      )}
+      {editar && <CidadeEnvioModal produto={produto} envio={editar} aoFechar={() => setEditar(null)} />}
+    </Card>
+  );
+}
+
+function CidadeEnvioModal({ produto, envio, aoFechar }: { produto: Produto; envio: Envio; aoFechar: () => void }) {
+  const invalidar = useInvalidar();
+  const [cidade, setCidade] = useState<Cidade | null>(envio.cidade);
+  const salvar = useMutation({
+    mutationFn: () => api.mudarCidadeEnvio(envio.id, cidade),
+    onSuccess: (r) => {
+      toast.success(r.cidade ? `Cidade: ${r.cidade.nome}` : "Cidade tirada", { description: produto.nome });
+      invalidar();
+      aoFechar();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  return (
+    <Modal
+      aberto
+      aoFechar={aoFechar}
+      titulo="Cidade do envio"
+      descricao={`${fmtNum(envio.quantidade)} ${produto.unidade} de ${produto.nome}${envio.projeto_nome ? ` · ${envio.projeto_nome}` : ""}`}
+      icone={<MapPinned />}
+      rodape={
+        <>
+          <Botao variante="ghost" onClick={aoFechar}>
+            Cancelar
+          </Botao>
+          <Botao variante="primary" onClick={() => salvar.mutate()} carregando={salvar.isPending}>
+            Salvar
+          </Botao>
+        </>
+      }
+    >
+      <Campo rotulo="Cidade" dica={envio.projeto_nome ? "Vazio: usa o local do projeto." : "Escolha a cidade para aparecer no mapa."}>
+        {(id) => <CampoCidade id={id} valor={cidade} aoMudar={setCidade} />}
+      </Campo>
+    </Modal>
+  );
+}

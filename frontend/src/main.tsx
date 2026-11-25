@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { StrictMode } from "react";
+import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster } from "sonner";
@@ -18,6 +18,9 @@ import { ProdutoDetalhe } from "./pages/ProdutoDetalhe";
 import { ProprioDetalhePagina, Proprios } from "./pages/Proprios";
 import { Projetos } from "./pages/Projetos";
 import { Produtos } from "./pages/Produtos";
+
+// O mapa (Leaflet) é pesado: só carrega quando alguém abre a aba
+const Mapa = lazy(() => import("./pages/Mapa").then((m) => ({ default: m.Mapa })));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 15_000, refetchOnWindowFocus: true, retry: 1 } },
@@ -39,6 +42,14 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="evolucao" element={<Evolucao />} />
                 <Route path="evolucao/:id" element={<EvolucaoDetalhePagina />} />
                 <Route path="projetos" element={<Projetos />} />
+                <Route
+                  path="mapa"
+                  element={
+                    <Suspense fallback={null}>
+                      <Mapa />
+                    </Suspense>
+                  }
+                />
                 <Route path="compras" element={<Compras />} />
                 <Route path="movimentacoes" element={<Movimentacoes />} />
                 <Route path="fornecedores" element={<Fornecedores />} />

@@ -193,6 +193,14 @@ class ProdutoDetalhe(ProdutoOut):
 
 
 # ---------- Movimentação ----------
+class Cidade(BaseModel):
+    """Cidade escolhida na busca (já com as coordenadas, para o mapa)."""
+
+    nome: str = Field(min_length=1, max_length=160)
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+
+
 class MovimentacaoIn(_Base):
     produto_id: int
     tipo: Literal["entrada", "retirada", "ajuste"]
@@ -200,6 +208,7 @@ class MovimentacaoIn(_Base):
     pessoa_id: int | None = None
     motivo: str | None = Field(default=None, max_length=255)
     projeto_id: int | None = Field(default=None, description="Opcional, só na retirada: para qual projeto foi")
+    cidade: Cidade | None = Field(default=None, description="Opcional, só na retirada: cidade para onde foi")
 
     _limpa = field_validator("motivo", mode="before")(_vazio_para_none)
 
@@ -214,6 +223,7 @@ class MovimentacaoOut(_Base):
     registrado_por_nome: str | None = None
     projeto_id: int | None = None
     projeto_nome: str | None = None
+    cidade: Cidade | None = None
     tipo: str
     quantidade: float
     saldo_apos: float
@@ -388,6 +398,7 @@ class UnidadeOut(BaseModel):
     status: StatusUnidade
     projeto_id: int | None
     projeto_nome: str | None
+    cidade: Cidade | None = None  # própria; vazia = usa o local do projeto
     local: str | None  # texto livre antigo (antes dos projetos)
     observacao: str | None
     montagem_id: int | None
@@ -400,6 +411,7 @@ class UnidadeUpdate(_Base):
     projeto_id: int | None = None
     local: str | None = Field(default=None, max_length=160)
     observacao: str | None = Field(default=None, max_length=255)
+    cidade: Cidade | None = None  # vazia = usa o local do projeto
 
     _limpa = field_validator("local", "observacao", mode="before")(_vazio_para_none)
 

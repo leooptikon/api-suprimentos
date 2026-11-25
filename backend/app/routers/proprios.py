@@ -109,6 +109,7 @@ def _unidade_out(u: models.Unidade) -> schemas.UnidadeOut:
         status=u.status,
         projeto_id=u.projeto_id,
         projeto_nome=u.projeto.nome if u.projeto else None,
+        cidade=services.cidade_de(u),
         local=u.local,
         observacao=u.observacao,
         montagem_id=u.montagem_id,
@@ -169,6 +170,7 @@ def atualizar_unidade(
     if dados.status == "em_campo" and not dados.projeto_id and ha_projetos:
         raise HTTPException(422, "Escolha o projeto (empresa) onde a unidade está")
     u.status, u.projeto_id, u.local, u.observacao = dados.status, dados.projeto_id, dados.local, dados.observacao
+    u.cidade, u.lat, u.lng = (dados.cidade.nome, dados.cidade.lat, dados.cidade.lng) if dados.cidade else (None, None, None)
     u.atualizado_em = models.agora()
     u.eventos.append(
         models.EventoUnidade(

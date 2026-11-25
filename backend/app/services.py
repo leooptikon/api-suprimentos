@@ -5,6 +5,13 @@ from sqlalchemy.orm import Session
 from . import mercadolivre, models, schemas
 
 
+def cidade_de(obj) -> schemas.Cidade | None:
+    """Cidade própria de uma unidade ou de um envio (retirada), se tiver."""
+    if obj.cidade and obj.lat is not None and obj.lng is not None:
+        return schemas.Cidade(nome=obj.cidade, lat=obj.lat, lng=obj.lng)
+    return None
+
+
 def status_estoque(p: models.Produto) -> schemas.StatusEstoque:
     if p.quantidade <= 0:
         return "esgotado"
@@ -89,6 +96,7 @@ def movimentacao_out(m: models.Movimentacao) -> schemas.MovimentacaoOut:
         registrado_por_nome=m.registrado_por.nome if m.registrado_por else None,
         projeto_id=m.projeto_id,
         projeto_nome=m.projeto.nome if m.projeto else None,
+        cidade=cidade_de(m),
         tipo=m.tipo,
         quantidade=m.quantidade,
         saldo_apos=m.saldo_apos,
@@ -135,6 +143,8 @@ def aplicar_movimentacao(
     if produto.arquivado:
         raise HTTPException(409, "Produto arquivado: restaure-o antes de movimentar")
 
+    if dados.cidade is not None and dados.tipo != "retirada":
+        raise HTTPException(422, "Cidade só vale para retirada")
     if dados.projeto_id is not None:
         if dados.tipo != "retirada":
             raise HTTPException(422, "Projeto só vale para retirada")
@@ -198,6 +208,9 @@ def aplicar_movimentacao(
         estorno_de_id=estorno_de.id if estorno_de else None,
         montagem_id=montagem_id,
         projeto_id=dados.projeto_id,
+        cidade=dados.cidade.nome if dados.cidade else None,
+        lat=dados.cidade.lat if dados.cidade else None,
+        lng=dados.cidade.lng if dados.cidade else None,
     )
     db.add(mov)
     if dados.tipo == "entrada" and estorno_de is None and montagem_id is None:

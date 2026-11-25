@@ -130,6 +130,7 @@ export interface Movimentacao {
   registrado_por_nome: string | null;
   projeto_id: number | null;
   projeto_nome: string | null;
+  cidade: Cidade | null;
   tipo: TipoMov;
   quantidade: number;
   saldo_apos: number;
@@ -147,6 +148,7 @@ export interface MovimentacaoForm {
   pessoa_id: number | null;
   motivo: string | null;
   projeto_id?: number | null;
+  cidade?: Cidade | null;
 }
 
 export interface Dashboard {
@@ -247,6 +249,46 @@ export interface ProprioForm {
   componentes: { produto_id: number; quantidade: number; alternativas: number[] }[];
 }
 
+/* ---------- Mapa ---------- */
+export interface PontoMapa {
+  /** Prefixo do produto próprio ("OLIE") ou "P<id>" do produto do estoque */
+  chave: string;
+  nome: string;
+  proprio: boolean;
+  lat: number;
+  lng: number;
+  lugar: string | null;
+  total: number;
+  itens: { texto: string; detalhe: string | null; projeto: string | null }[];
+}
+
+export interface MapaDados {
+  pontos: PontoMapa[];
+  /** Coisas num projeto sem local e sem cidade própria */
+  sem_local: { projeto_id: number | null; projeto_nome: string | null; chave: string; nome: string; proprio: boolean; total: number }[];
+}
+
+/** Envio (retirada) de um produto do estoque, para a aba Localização */
+export interface Envio {
+  id: number;
+  criado_em: string;
+  quantidade: number;
+  pessoa_nome: string | null;
+  projeto_id: number | null;
+  projeto_nome: string | null;
+  cidade: Cidade | null;
+  /** Onde aparece no mapa: a cidade própria ou o local do projeto */
+  lugar: string | null;
+  no_mapa: boolean;
+}
+
+/** Cidade escolhida na busca, já com as coordenadas (para o mapa) */
+export interface Cidade {
+  nome: string;
+  lat: number;
+  lng: number;
+}
+
 export interface Unidade {
   id: number;
   proprio_id: number;
@@ -256,6 +298,8 @@ export interface Unidade {
   projeto_id: number | null;
   /** Exatamente o nome da pasta no OneDrive, ex.: "21.40 - TM ENGENHARIA" */
   projeto_nome: string | null;
+  /** Cidade própria (mapa); vazia = usa o local do projeto */
+  cidade: Cidade | null;
   /** Texto livre de antes dos projetos (só nas unidades antigas) */
   local: string | null;
   observacao: string | null;
@@ -308,7 +352,11 @@ export interface Projeto {
   url: string | null;
   /** false = a pasta saiu do OneDrive; não aparece mais para escolher */
   no_onedrive: boolean;
-  unidades: { id: number; numero_serie: string; proprio_nome: string; status: StatusUnidade }[];
+  /** Onde fica, para o mapa (definido à mão) */
+  lat: number | null;
+  lng: number | null;
+  local_nome: string | null;
+  unidades: { id: number; numero_serie: string; proprio_id: number; proprio_nome: string; proprio_prefixo: string; status: StatusUnidade }[];
   /** Produtos do estoque mandados por retirada (somados) */
   itens: { produto_id: number; produto_nome: string; unidade: string; quantidade: number }[];
 }
@@ -539,7 +587,7 @@ export const api = {
   cancelarMontagem: (id: number) => http<void>("POST", `/api/proprios/montagens/${id}/cancelar`),
   unidades: (f: { proprio_id?: number; status?: string; projeto_id?: number; busca?: string } = {}) =>
     http<Unidade[]>("GET", `/api/proprios/unidades${qs(f)}`),
-  atualizarUnidade: (id: number, d: { status: StatusUnidade; projeto_id: number | null; observacao: string | null }) =>
+  atualizarUnidade: (id: number, d: { status: StatusUnidade; projeto_id: number | null; observacao: string | null; cidade: Cidade | null }) =>
     http<Unidade>("PATCH", `/api/proprios/unidades/${id}`, d),
   eventosUnidade: (id: number) => http<EventoUnidade[]>("GET", `/api/proprios/unidades/${id}/eventos`),
 
@@ -551,6 +599,13 @@ export const api = {
   historicoPrecos: (produtoId: number) => http<PontoPreco[]>("GET", `/api/mercadolivre/historico/${produtoId}`),
 
   projetos: () => http<Projeto[]>("GET", "/api/projetos"),
+  buscarLugar: (q: string) => http<{ nome: string; curto: string | null; lat: number; lng: number }[]>("GET", `/api/projetos/geocodificar${qs({ q })}`),
+  mapa: () => http<MapaDados>("GET", "/api/mapa"),
+  envios: (produtoId: number) => http<Envio[]>("GET", `/api/produtos/${produtoId}/envios`),
+  mudarCidadeEnvio: (movId: number, cidade: Cidade | null) => http<Envio>("PATCH", `/api/movimentacoes/${movId}/cidade`, { cidade }),
+  definirLocalProjeto: (id: number, d: { lat: number; lng: number; local_nome: string | null }) =>
+    http<{ nome: string; lat: number; lng: number }>("PUT", `/api/projetos/${id}/local`, d),
+  tirarLocalProjeto: (id: number) => http<void>("DELETE", `/api/projetos/${id}/local`),
   origemProjetos: () => http<OrigemProjetos>("GET", "/api/projetos/origem"),
   pastaProjetos: (link: string) => http<LeituraProjetos>("POST", "/api/projetos/pasta", { link }),
   atualizarProjetos: () => http<LeituraProjetos>("POST", "/api/projetos/atualizar"),

@@ -3,12 +3,13 @@ import { Factory, History, Minus, Plus, Repeat, Search, Trash2, Wrench, X } from
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { api, type Produto, type ProprioDetalhe, type ProprioForm, type StatusUnidade, type Unidade } from "../lib/api";
+import { api, type Cidade, type Produto, type ProprioDetalhe, type ProprioForm, type StatusUnidade, type Unidade } from "../lib/api";
 import { MiniaturaProduto } from "../lib/categorias";
 import { fmtDataHora, fmtNum } from "../lib/format";
 import { BadgeStatusUnidade, ORDEM_STATUS, STATUS_UNIDADE, sugerirPrefixo } from "../lib/proprios";
 import { useInvalidar } from "./acoes";
 import { useAuth } from "./auth";
+import { CampoCidade } from "./CampoCidade";
 import { Botao, Campo, cn, Esqueleto, Input, InputSugestoes, Modal, Select, Textarea } from "./ui";
 
 const numero = (v: string) => {
@@ -548,6 +549,7 @@ export function UnidadeModal({ unidade, aoFechar }: { unidade: Unidade; aoFechar
   const [status, setStatus] = useState<StatusUnidade>(unidade.status);
   const [projetoId, setProjetoId] = useState<number | null>(unidade.projeto_id);
   const [obs, setObs] = useState("");
+  const [cidade, setCidade] = useState<Cidade | null>(unidade.cidade);
   const eventos = useQuery({ queryKey: ["eventos-unidade", unidade.id], queryFn: () => api.eventosUnidade(unidade.id) });
   const projetos = useQuery({ queryKey: ["projetos"], queryFn: api.projetos });
 
@@ -556,8 +558,9 @@ export function UnidadeModal({ unidade, aoFechar }: { unidade: Unidade; aoFechar
   const haProjetos = (projetos.data ?? []).some((p) => p.no_onedrive);
   // Em campo exige projeto — só quando já existem projetos (antes de conectar o OneDrive não trava ninguém)
   const precisaProjeto = status === "em_campo" && !projetoId && haProjetos;
+  const projetoLocal = (projetos.data ?? []).find((p) => p.id === projetoId)?.local_nome ?? null;
   const salvar = useMutation({
-    mutationFn: () => api.atualizarUnidade(unidade.id, { status, projeto_id: projetoId, observacao: obs || null }),
+    mutationFn: () => api.atualizarUnidade(unidade.id, { status, projeto_id: projetoId, observacao: obs || null, cidade }),
     onSuccess: (u) => {
       toast.success(`${u.numero_serie}: ${STATUS_UNIDADE[u.status].rotulo}`);
       invalidar();
@@ -651,6 +654,19 @@ export function UnidadeModal({ unidade, aoFechar }: { unidade: Unidade; aoFechar
             </Select>
           )}
         </Campo>
+        <Campo
+          rotulo="Cidade"
+          dica={
+            cidade
+              ? "Aparece no mapa nesta cidade."
+              : projetoLocal
+                ? `Vazio: usa o local do projeto (${projetoLocal}).`
+                : "Opcional. Escolha a cidade para a unidade aparecer no mapa."
+          }
+        >
+          {(id) => <CampoCidade id={id} valor={cidade} aoMudar={setCidade} />}
+        </Campo>
+
         <Campo rotulo="Observação">
           {(id) => <Textarea id={id} value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Ex.: Instalado pelo Bruno; trocar bateria em março" className="min-h-16" />}
         </Campo>

@@ -3,10 +3,11 @@ import { ArrowDownToLine, ArrowUpFromLine, Minus, PackagePlus, Pencil, Plus, Sca
 import { createContext, useContext, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { api, type Movimentacao, type Produto, type ProdutoForm, type TipoMov } from "../lib/api";
+import { api, type Cidade, type Movimentacao, type Produto, type ProdutoForm, type TipoMov } from "../lib/api";
 import { MiniaturaProduto } from "../lib/categorias";
 import { fmtNum } from "../lib/format";
 import { useAuth } from "./auth";
+import { CampoCidade } from "./CampoCidade";
 import { Botao, Campo, cn, Input, InputSugestoes, Modal, Select, Textarea } from "./ui";
 
 /* ---------- Contexto: qualquer tela pode abrir os modais ---------- */
@@ -186,6 +187,7 @@ function MovimentacaoModal({
   const [qtd, setQtd] = useState<string>(tipoInicial === "ajuste" && inicial ? String(inicial.quantidade) : "1");
   const [motivo, setMotivo] = useState("");
   const [projetoId, setProjetoId] = useState<number | null>(null);
+  const [cidade, setCidade] = useState<Cidade | null>(null);
 
   const qtdRef = useRef<HTMLInputElement>(null);
   const pessoas = useQuery({ queryKey: ["pessoas"], queryFn: () => api.pessoas() });
@@ -215,6 +217,7 @@ function MovimentacaoModal({
         pessoa_id: pessoaId,
         motivo: motivo || null,
         projeto_id: tipo === "retirada" ? projetoId : null,
+        cidade: tipo === "retirada" ? cidade : null,
       }),
     onSuccess: (m) => {
       if (m.tipo === "ajuste") toast.success("Contagem corrigida", { description: `${m.produto_nome} · saldo ${fmtNum(m.saldo_apos)} ${m.produto_unidade}` });
@@ -395,6 +398,12 @@ function MovimentacaoModal({
                 ))}
               </Select>
             )}
+          </Campo>
+        )}
+
+        {tipo === "retirada" && (
+          <Campo rotulo="Cidade" dica="Opcional. Para onde vai (aparece no mapa). Sem cidade, usa o local do projeto.">
+            {(id) => <CampoCidade id={id} valor={cidade} aoMudar={setCidade} />}
           </Campo>
         )}
 
